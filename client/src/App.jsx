@@ -21,8 +21,25 @@ function ProtectedRoute({ children }) {
 
 function GuestRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
-  if (loading) return <div className="page-loader">Loading...</div>;
-  if (isAuthenticated) return <Navigate to="/" replace />;
+
+  if (loading) {
+    return <div className="page-loader">Loading...</div>;
+  }
+
+  if (isAuthenticated) {
+    const scope = sessionStorage.getItem('authScope');
+
+    if (scope === 'customer') {
+      const cafeSlug = sessionStorage.getItem('customerCafeSlug');
+
+      if (cafeSlug) {
+        return <Navigate to={`/cafe/${cafeSlug}`} replace />;
+      }
+    }
+
+    return <Navigate to="/" replace />;
+  }
+
   return children;
 }
 

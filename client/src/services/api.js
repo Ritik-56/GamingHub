@@ -8,10 +8,17 @@ const api = axios.create({
 
 // Request interceptor — will attach auth token in future milestone
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
+  const scope = sessionStorage.getItem('authScope');
+
+  const token =
+    scope === 'customer'
+      ? sessionStorage.getItem('customerToken')
+      : sessionStorage.getItem('adminToken');
+
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+
   return config;
 });
 

@@ -12,7 +12,7 @@ export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const from = location.state?.from || '/';
-
+  const isCustomerLogin = location.state?.from?.startsWith('/cafe/');
   const handleChange = (e) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
     setError('');
@@ -25,9 +25,19 @@ export default function Login() {
 
     try {
       if (isRegister) {
-        await register(form.name, form.email, form.phone, form.password);
+        await register(
+  form.name,
+  form.email,
+  form.phone,
+  form.password,
+  isCustomerLogin ? 'customer' : 'admin'
+);
       } else {
-        await login(form.email, form.password);
+        await login(
+  form.email,
+  form.password,
+  isCustomerLogin ? 'customer' : 'admin'
+);
       }
       navigate(from, { replace: true });
     } catch (err) {

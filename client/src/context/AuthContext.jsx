@@ -2,11 +2,27 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import api from '../services/api';
 
 const AuthContext = createContext(null);
-
+// const getAuthStorageKey = () => {
+//   return window.location.pathname.startsWith('/cafe/')
+//     ? 'customerToken'
+//     : 'adminToken';
+// };
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(() => localStorage.getItem('token'));
+ // const storageKey = getAuthStorageKey();
+
+const getStoredToken = () => {
+  const scope = sessionStorage.getItem('authScope');
+
+  if (scope === 'customer') {
+    return sessionStorage.getItem('customerToken');
+  }
+
+  return sessionStorage.getItem('adminToken');
+};
+
+const [token, setToken] = useState(getStoredToken);
   const [loading, setLoading] = useState(true);
 
   // Cafe-related state
@@ -15,13 +31,24 @@ export function AuthProvider({ children }) {
   const [currentRole, setCurrentRole] = useState(null);
 
   const saveToken = useCallback((newToken) => {
-    setToken(newToken);
+  const scope = sessionStorage.getItem('authScope');
+
+  setToken(newToken);
+
+  if (scope === 'customer') {
     if (newToken) {
-      localStorage.setItem('token', newToken);
+      sessionStorage.setItem('customerToken', newToken);
     } else {
-      localStorage.removeItem('token');
+      sessionStorage.removeItem('customerToken');
     }
-  }, []);
+  } else {
+    if (newToken) {
+      sessionStorage.setItem('adminToken', newToken);
+    } else {
+      sessionStorage.removeItem('adminToken');
+    }
+  }
+}, []);
 
   const fetchCafes = useCallback(async () => {
     try {
@@ -31,11 +58,11 @@ export function AuthProvider({ children }) {
 
       // Auto-select the first cafe (or the one saved in localStorage)
       if (cafeList.length > 0) {
-        const savedCafeId = localStorage.getItem('currentCafeId');
+        const savedCafeId = sessionStorage.getItem('currentCafeId');
         const match = cafeList.find((c) => c.cafe._id === savedCafeId) || cafeList[0];
         setCurrentCafe(match.cafe);
         setCurrentRole(match.role);
-        localStorage.setItem('currentCafeId', match.cafe._id);
+        sessionStorage.setItem('currentCafeId', match.cafe._id);
       } else {
         setCurrentCafe(null);
         setCurrentRole(null);
@@ -66,39 +93,62 @@ export function AuthProvider({ children }) {
       .finally(() => setLoading(false));
   }, [token, saveToken, fetchCafes]);
 
-  const login = async (email, password) => {
-    const res = await api.post('/auth/login', { email, password });
-    const { token: newToken, user: userData } = res.data.data;
-    saveToken(newToken);
-    setUser(userData);
-    await fetchCafes();
-    return userData;
-  };
+  const login = async (email, password, scope = 'admin') => {
+  sessionStorage.setItem('authScope', scope);
 
-  const register = async (name, email, phone, password) => {
-    const res = await api.post('/auth/register', { name, email, phone, password });
-    const { token: newToken, user: userData } = res.data.data;
-    saveToken(newToken);
-    setUser(userData);
-    await fetchCafes();
-    return userData;
-  };
+  const res = await api.post('/auth/login', { email, password });
+  const { token: newToken, user: userData } = res.data.data;
 
-  const logout = useCallback(() => {
-    saveToken(null);
-    setUser(null);
-    setCafes([]);
-    setCurrentCafe(null);
-    setCurrentRole(null);
-    localStorage.removeItem('currentCafeId');
-  }, [saveToken]);
+  saveToken(newToken);
+  setUser(userData);
+  await fetchCafes();
+
+  return userData;
+};
+
+  const register = async (name, email, phone, password, scope = 'admin') => {
+  sessionStorage.setItem('authScope', scope);
+
+  const res = await api.post('/auth/register', {
+    name,
+    email,
+    phone,
+    password,
+  });
+
+  const { token: newToken, user: userData } = res.data.data;
+
+  saveToken(newToken);
+  setUser(userData);
+  await fetchCafes();
+
+  return userData;
+};
+const logout = useCallback(() => {
+  const scope = sessionStorage.getItem('authScope');
+
+  saveToken(null);
+  setUser(null);
+  setCafes([]);
+  setCurrentCafe(null);
+  setCurrentRole(null);
+
+  sessionStorage.removeItem('currentCafeId');
+  sessionStorage.removeItem('authScope');
+
+  if (scope === 'customer') {
+    sessionStorage.removeItem('customerToken');
+  } else {
+    sessionStorage.removeItem('adminToken');
+  }
+}, [saveToken]);
 
   const selectCafe = useCallback((cafeId) => {
     const match = cafes.find((c) => c.cafe._id === cafeId);
     if (match) {
       setCurrentCafe(match.cafe);
       setCurrentRole(match.role);
-      localStorage.setItem('currentCafeId', cafeId);
+      sessionStorage.setItem('currentCafeId', cafeId);
     }
   }, [cafes]);
 

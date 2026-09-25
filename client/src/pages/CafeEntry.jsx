@@ -80,10 +80,14 @@ export default function CafeEntry() {
 
   const handleRequest = async (stationId) => {
     if (!isAuthenticated) {
-      navigate(`/login`, { state: { from: `/cafe/${slug}` } });
-      return;
-    }
+  sessionStorage.setItem('customerCafeSlug', slug);
 
+  navigate('/login', {
+    state: { from: `/cafe/${slug}` },
+  });
+
+  return;
+}
     setRequesting(stationId);
     setError('');
 
@@ -206,7 +210,13 @@ export default function CafeEntry() {
             <p>Sign in to request a gaming session</p>
             <button
               className="btn btn-primary"
-              onClick={() => navigate('/login', { state: { from: `/cafe/${slug}` } })}
+              onClick={() => {
+  sessionStorage.setItem('customerCafeSlug', slug);
+
+  navigate('/login', {
+    state: { from: `/cafe/${slug}` },
+  });
+}}
             >
               Sign In
             </button>
