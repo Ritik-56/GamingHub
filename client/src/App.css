@@ -1223,6 +1223,11 @@ select.form-input {
   border-color: var(--color-border);
 }
 
+.session-payment-pending {
+  border-color: rgba(245, 158, 11, 0.3);
+  background: rgba(245, 158, 11, 0.02);
+}
+
 /* Pulse indicator */
 .session-pulse-indicator {
   display: inline-flex;
@@ -1611,3 +1616,73 @@ select.form-input {
   font-size: var(--font-size-sm);
 }
 
+/* ---------- Page Section Actions ---------- */
+.page-section-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* ---------- Payment History ---------- */
+.history-date-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.history-date-buttons {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.history-date-input {
+  max-width: 180px;
+  font-size: var(--font-size-sm);
+}
+
+.records-summary {
+  display: flex;
+  gap: var(--space-6);
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-4);
+}
+
+.records-summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.records-summary-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.records-summary-value {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.records-summary-amount {
+  color: var(--color-success);
+}
+
+@media (max-width: 640px) {
+  .history-date-controls {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .records-summary {
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+}

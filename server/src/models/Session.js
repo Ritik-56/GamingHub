@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 
-const SESSION_STATUSES = ['REQUESTED', 'ACTIVE', 'COMPLETED', 'REJECTED', 'CANCELLED'];
+const SESSION_STATUSES = ['REQUESTED', 'ACTIVE', 'PAYMENT_PENDING', 'COMPLETED', 'REJECTED', 'CANCELLED'];
 
 const sessionSchema = new mongoose.Schema(
   {

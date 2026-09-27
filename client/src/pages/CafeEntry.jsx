@@ -337,17 +337,61 @@ function CustomerSession({ session, cafe, onSessionEnd }) {
     );
   }
 
-  // Completed/ended
+  // Payment pending — session ended, awaiting payment at counter
+  if (session.status === 'PAYMENT_PENDING') {
+    return (
+      <div className="customer-content">
+        <div className="session-status-card session-payment-pending">
+          <div className="session-status-icon">💳</div>
+          <h2>Payment Due</h2>
+          <div className="session-bill">
+            <span className="session-bill-label">Total Amount</span>
+            <span className="session-bill-amount">{cafe?.currency || '₹'}{session.finalAmount}</span>
+          </div>
+          <div className="session-details">
+            <div className="session-detail-row">
+              <span>Station</span>
+              <span>{session.station?.name} ({session.station?.type})</span>
+            </div>
+            <div className="session-detail-row">
+              <span>Duration</span>
+              <span>{session.startedAt && session.endedAt
+                ? (() => {
+                    const ms = new Date(session.endedAt) - new Date(session.startedAt);
+                    const mins = Math.floor(ms / 60000);
+                    const hrs = Math.floor(mins / 60);
+                    const remainMins = mins % 60;
+                    return hrs > 0 ? `${hrs}h ${remainMins}m` : `${remainMins}m`;
+                  })()
+                : '—'
+              }</span>
+            </div>
+            <div className="session-detail-row">
+              <span>Rate</span>
+              <span>{cafe?.currency || '₹'}{session.pricePerHour}/hr</span>
+            </div>
+          </div>
+          <div className="session-pulse-indicator">
+            <span className="pulse-dot"></span>
+            Waiting for payment confirmation
+          </div>
+          <p className="session-note">Please pay at the counter. Staff will confirm your payment.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Completed — payment confirmed
   return (
     <div className="customer-content">
       <div className="session-status-card session-ended">
         <div className="session-status-icon">✅</div>
-        <h2>Session Ended</h2>
+        <h2>Session Complete</h2>
         <div className="session-bill">
-          <span className="session-bill-label">Total</span>
+          <span className="session-bill-label">Total Paid</span>
           <span className="session-bill-amount">{cafe?.currency || '₹'}{session.finalAmount}</span>
         </div>
-        <p className="session-note">Please pay at the counter. Thank you!</p>
+        <p className="session-note">Thank you for gaming with us!</p>
         <button className="btn btn-primary" onClick={onSessionEnd} style={{ marginTop: '1rem' }}>
           Done
         </button>

@@ -187,7 +187,7 @@ router.post(
       const elapsedMinutes = elapsedMs / 60000;
       const finalAmount = Math.round((elapsedMinutes / 60) * session.pricePerHour);
 
-      session.status = 'COMPLETED';
+      session.status = 'PAYMENT_PENDING';
       session.endedAt = now;
       session.endedBy = req.user._id;
       session.finalAmount = finalAmount;
@@ -228,7 +228,7 @@ router.get(
         filter.status = status;
       } else {
         // Default: show actionable sessions
-        filter.status = { $in: ['REQUESTED', 'ACTIVE'] };
+        filter.status = { $in: ['REQUESTED', 'ACTIVE', 'PAYMENT_PENDING'] };
       }
 
       const sessions = await Session.find(filter)
@@ -267,7 +267,7 @@ router.get(
       const session = await Session.findOne({
         cafe: req.params.cafeId,
         customer: req.user._id,
-        status: { $in: ['REQUESTED', 'ACTIVE'] },
+        status: { $in: ['REQUESTED', 'ACTIVE', 'PAYMENT_PENDING'] },
       })
         .populate('station', 'name type')
         .sort({ requestedAt: -1 });
