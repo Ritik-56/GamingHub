@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import api from '../services/api';
+import { customerApi, publicApi } from '../services/api';
 
 export default function CafeEntry() {
   const { slug } = useParams();
   const navigate = useNavigate();
-  const { isAuthenticated, user, loading: authLoading } = useAuth();
+  const { isCustomerAuthenticated, customerUser, loading: authLoading } = useAuth();
+  const isAuthenticated = isCustomerAuthenticated; // CafeEntry only cares about customer auth
+  const user = customerUser;
 
   const [cafe, setCafe] = useState(null);
   const [stations, setStations] = useState([]);
@@ -15,11 +17,21 @@ export default function CafeEntry() {
   const [requesting, setRequesting] = useState(null);
   const [mySession, setMySession] = useState(null);
   const [joined, setJoined] = useState(false);
+  const [stationControllers, setStationControllers] = useState({});
 
-  // Fetch café info (public)
+  const getControllerCount = (stationId) => stationControllers[stationId] || 1;
+  const handleControllerChange = (stationId, delta) => {
+    setStationControllers((prev) => {
+      const current = prev[stationId] || 1;
+      const next = Math.max(1, Math.min(4, current + delta));
+      return { ...prev, [stationId]: next };
+    });
+  };
+
+  // Fetch café info (public — no auth token needed)
   const fetchCafe = useCallback(async () => {
     try {
-      const res = await api.get(`/cafes/slug/${slug}`);
+      const res = await publicApi.get(`/cafes/slug/${slug}`);
       setCafe(res.data.data.cafe);
       setStations(res.data.data.stations || []);
     } catch (err) {
@@ -29,31 +41,31 @@ export default function CafeEntry() {
     }
   }, [slug]);
 
-  // Join café and fetch session state
+  // Join café and fetch session state — only for authenticated customers
   const joinAndFetchSession = useCallback(async () => {
-    if (!isAuthenticated || !cafe) return;
+    if (!isCustomerAuthenticated || !cafe) return;
     try {
-      await api.post(`/cafes/slug/${slug}/join`);
+      await customerApi.post(`/cafes/slug/${slug}/join`);
       setJoined(true);
 
       // Check if customer has an existing session
-      const sessionRes = await api.get(`/cafes/${cafe._id}/sessions/my`);
+      const sessionRes = await customerApi.get(`/cafes/${cafe._id}/sessions/my`);
       setMySession(sessionRes.data.data.session);
     } catch (err) {
       // Non-fatal — user can still browse
       console.error('Join/session check failed:', err.message);
     }
-  }, [isAuthenticated, cafe, slug]);
+  }, [isCustomerAuthenticated, cafe, slug]);
 
   useEffect(() => {
     fetchCafe();
   }, [fetchCafe]);
 
   useEffect(() => {
-    if (isAuthenticated && cafe && !joined) {
+    if (isCustomerAuthenticated && cafe && !joined) {
       joinAndFetchSession();
     }
-  }, [isAuthenticated, cafe, joined, joinAndFetchSession]);
+  }, [isCustomerAuthenticated, cafe, joined, joinAndFetchSession]);
 
   // Refresh station data periodically
   useEffect(() => {
@@ -67,7 +79,7 @@ export default function CafeEntry() {
     if (!mySession || !cafe) return;
     const interval = setInterval(async () => {
       try {
-        const res = await api.get(`/cafes/${cafe._id}/sessions/my`);
+        const res = await customerApi.get(`/cafes/${cafe._id}/sessions/my`);
         setMySession(res.data.data.session);
         // Also refresh station data
         fetchCafe();
@@ -79,20 +91,22 @@ export default function CafeEntry() {
   }, [mySession, cafe, fetchCafe]);
 
   const handleRequest = async (stationId) => {
-    if (!isAuthenticated) {
-  sessionStorage.setItem('customerCafeSlug', slug);
-
-  navigate('/login', {
-    state: { from: `/cafe/${slug}` },
-  });
-
-  return;
-}
+    if (!isCustomerAuthenticated) {
+      // Prompt customer to log in — explicitly set mode to 'customer'
+      navigate('/login', {
+        state: { mode: 'customer', from: `/cafe/${slug}` },
+      });
+      return;
+    }
     setRequesting(stationId);
     setError('');
 
     try {
-      const res = await api.post(`/cafes/${cafe._id}/sessions/request`, { stationId });
+      const controllerCount = getControllerCount(stationId);
+      const res = await customerApi.post(`/cafes/${cafe._id}/sessions/request`, {
+        stationId,
+        controllerCount,
+      });
       setMySession(res.data.data.session);
       await fetchCafe();
     } catch (err) {
@@ -189,13 +203,48 @@ export default function CafeEntry() {
                 {statusLabel(station.status)}
               </div>
               {station.status === 'AVAILABLE' && (
-                <button
-                  className="btn btn-primary station-card-action"
-                  onClick={() => handleRequest(station._id)}
-                  disabled={requesting === station._id || !!mySession}
-                >
-                  {requesting === station._id ? 'Requesting...' : 'Request Session'}
-                </button>
+                <>
+                  <div className="station-controller-stepper">
+                    <span className="controller-stepper-label">Controllers</span>
+                    <div className="controller-stepper-controls">
+                      <button
+                        type="button"
+                        className="stepper-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleControllerChange(station._id, -1);
+                        }}
+                        disabled={getControllerCount(station._id) <= 1 || requesting === station._id}
+                        title="Decrease controllers"
+                      >
+                        −
+                      </button>
+                      <span className="stepper-count">{getControllerCount(station._id)}</span>
+                      <button
+                        type="button"
+                        className="stepper-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleControllerChange(station._id, 1);
+                        }}
+                        disabled={getControllerCount(station._id) >= 4 || requesting === station._id}
+                        title="Increase controllers"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                  <div className="station-controller-charge">
+                    ₹{getControllerCount(station._id) * 100}/hr (₹100/hr per controller)
+                  </div>
+                  <button
+                    className="btn btn-primary station-card-action"
+                    onClick={() => handleRequest(station._id)}
+                    disabled={requesting === station._id || !!mySession}
+                  >
+                    {requesting === station._id ? 'Requesting...' : 'Request Session'}
+                  </button>
+                </>
               )}
             </div>
           ))}
@@ -205,18 +254,16 @@ export default function CafeEntry() {
           <div className="customer-empty">No stations available at this café right now.</div>
         )}
 
-        {!isAuthenticated && (
+        {!isCustomerAuthenticated && (
           <div className="customer-login-prompt">
             <p>Sign in to request a gaming session</p>
             <button
               className="btn btn-primary"
               onClick={() => {
-  sessionStorage.setItem('customerCafeSlug', slug);
-
-  navigate('/login', {
-    state: { from: `/cafe/${slug}` },
-  });
-}}
+                navigate('/login', {
+                  state: { mode: 'customer', from: `/cafe/${slug}` },
+                });
+              }}
             >
               Sign In
             </button>
@@ -229,7 +276,7 @@ export default function CafeEntry() {
 
 function CustomerHeader({ cafe, user }) {
   const navigate = useNavigate();
-  const { logout, isAuthenticated } = useAuth();
+  const { logout, isCustomerAuthenticated } = useAuth();
 
   return (
     <header className="customer-header">
@@ -238,15 +285,16 @@ function CustomerHeader({ cafe, user }) {
         <span className="customer-header-name">{cafe?.name}</span>
       </div>
       <div className="customer-header-actions">
-        {isAuthenticated ? (
+        {isCustomerAuthenticated ? (
           <>
             <span className="customer-header-user">{user?.name}</span>
-            <button className="btn btn-ghost btn-sm" onClick={logout}>Logout</button>
+            {/* Explicitly log out only the customer scope */}
+            <button className="btn btn-ghost btn-sm" onClick={() => logout('customer')}>Logout</button>
           </>
         ) : (
           <button
             className="btn btn-primary btn-sm"
-            onClick={() => navigate('/login', { state: { from: window.location.pathname } })}
+            onClick={() => navigate('/login', { state: { mode: 'customer', from: window.location.pathname } })}
           >
             Sign In
           </button>
@@ -283,9 +331,16 @@ function CustomerSession({ session, cafe, onSessionEnd }) {
     return `${mins}m ${String(secs).padStart(2, '0')}s`;
   };
 
-  const currentBill = session.status === 'ACTIVE' && session.pricePerHour
-    ? Math.round((elapsed / 3600) * session.pricePerHour)
-    : session.currentBill || 0;
+  const ctrlCount = session.controllersRequested || session.controllerCount || 1;
+  const ctrlHourlyRate = ctrlCount * 100;
+
+  // Real-time dynamic estimate between server polls: (100 * controllerCount * durationMinutes) / 60
+  const elapsedMinutes = elapsed / 60;
+  const liveEstimated = Math.round(((100 * ctrlCount * elapsedMinutes) / 60) * 100) / 100;
+
+  const currentBill = session.status === 'ACTIVE'
+    ? (session.currentBill != null ? session.currentBill : liveEstimated)
+    : (session.finalAmount || session.currentBill || 0);
 
   if (session.status === 'REQUESTED') {
     return (
@@ -295,7 +350,10 @@ function CustomerSession({ session, cafe, onSessionEnd }) {
           <h2>Waiting for Approval</h2>
           <p>Your session request for <strong>{session.station?.name}</strong> is being reviewed by staff.</p>
           <div className="session-status-detail">
-            <span>Station: {session.station?.name} ({session.station?.type})</span>
+            <div>Station: <strong>{session.station?.name}</strong> ({session.station?.type})</div>
+            <div style={{ marginTop: '0.25rem' }}>
+              Controllers: <strong>{ctrlCount}</strong> (₹{ctrlHourlyRate}/hr)
+            </div>
           </div>
           <div className="session-pulse-indicator">
             <span className="pulse-dot"></span>
@@ -315,7 +373,7 @@ function CustomerSession({ session, cafe, onSessionEnd }) {
           <div className="session-timer">{formatTime(elapsed)}</div>
           <div className="session-bill">
             <span className="session-bill-label">Current Bill</span>
-            <span className="session-bill-amount">{cafe?.currency || '₹'}{currentBill}</span>
+            <span className="session-bill-amount">{cafe?.currency || '₹'}{typeof currentBill === 'number' ? currentBill.toFixed(2) : currentBill}</span>
           </div>
           <div className="session-details">
             <div className="session-detail-row">
@@ -323,8 +381,12 @@ function CustomerSession({ session, cafe, onSessionEnd }) {
               <span>{session.station?.name} ({session.station?.type})</span>
             </div>
             <div className="session-detail-row">
+              <span>Controllers</span>
+              <span>{ctrlCount} (₹{ctrlHourlyRate}/hr)</span>
+            </div>
+            <div className="session-detail-row">
               <span>Rate</span>
-              <span>{cafe?.currency || '₹'}{session.pricePerHour}/hr</span>
+              <span>₹{ctrlHourlyRate}/hr</span>
             </div>
             <div className="session-detail-row">
               <span>Started</span>
@@ -346,12 +408,16 @@ function CustomerSession({ session, cafe, onSessionEnd }) {
           <h2>Payment Due</h2>
           <div className="session-bill">
             <span className="session-bill-label">Total Amount</span>
-            <span className="session-bill-amount">{cafe?.currency || '₹'}{session.finalAmount}</span>
+            <span className="session-bill-amount">{cafe?.currency || '₹'}{typeof session.finalAmount === 'number' ? session.finalAmount.toFixed(2) : session.finalAmount}</span>
           </div>
           <div className="session-details">
             <div className="session-detail-row">
               <span>Station</span>
               <span>{session.station?.name} ({session.station?.type})</span>
+            </div>
+            <div className="session-detail-row">
+              <span>Controllers</span>
+              <span>{ctrlCount} (₹{ctrlHourlyRate}/hr)</span>
             </div>
             <div className="session-detail-row">
               <span>Duration</span>
@@ -368,7 +434,7 @@ function CustomerSession({ session, cafe, onSessionEnd }) {
             </div>
             <div className="session-detail-row">
               <span>Rate</span>
-              <span>{cafe?.currency || '₹'}{session.pricePerHour}/hr</span>
+              <span>₹{ctrlHourlyRate}/hr</span>
             </div>
           </div>
           <div className="session-pulse-indicator">

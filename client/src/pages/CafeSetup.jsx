@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import api from '../services/api';
+import { adminApi as api } from '../services/api';
 
 export default function CafeSetup() {
   const [form, setForm] = useState({
@@ -33,7 +33,7 @@ export default function CafeSetup() {
         pricePerHour: parseFloat(form.pricePerHour) || 100,
       });
       await fetchCafes();
-      navigate('/', { replace: true });
+      navigate('/dashboard', { replace: true });
     } catch (err) {
       setError(err.message);
     } finally {

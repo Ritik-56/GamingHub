@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-import api from '../services/api';
+import { adminApi as api } from '../services/api';
 
 export default function ActiveSessions() {
   const { currentCafe } = useAuth();
@@ -81,6 +81,7 @@ export default function ActiveSessions() {
               <tr>
                 <th>Station</th>
                 <th>Customer</th>
+                <th>Controllers</th>
                 <th>Duration</th>
                 <th>Current Bill</th>
                 <th>Started</th>
@@ -96,13 +97,21 @@ export default function ActiveSessions() {
                     <span className="badge badge-type">{s.station?.type}</span>
                   </td>
                   <td>
-                    <div className="td-bold">{s.customer?.name}</div>
+                    <div className="td-bold">{s.customer?.name || s.customerName || 'Walk-in'}</div>
                     <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>
-                      {s.customer?.phone || s.customer?.email}
+                      {s.customer?.phone || s.customer?.email || s.customerPhone || '—'}
                     </div>
                   </td>
+                  <td>
+                    <span className="td-bold">{s.controllersRequested || 1}</span>{' '}
+                    <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>
+                      ({(s.controllersRequested || 1) === 1 ? 'ctrl' : 'ctrls'} @ ₹100/hr)
+                    </span>
+                  </td>
                   <td className="td-bold">{formatDuration(s.elapsedMinutes)}</td>
-                  <td className="td-bold">₹{s.currentBill || 0}</td>
+                  <td className="td-bold">
+                    ₹{typeof s.currentBill === 'number' ? s.currentBill.toFixed(2) : (s.currentBill || 0)}
+                  </td>
                   <td>{s.startedAt ? new Date(s.startedAt).toLocaleTimeString() : '—'}</td>
                   <td className="td-actions">
                     <button

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import api from '../services/api';
+import { adminApi as api } from '../services/api';
 
 export default function Home() {
   const { currentCafe, currentRole } = useAuth();
@@ -95,7 +95,7 @@ export default function Home() {
         <div
           className="card stat-card stat-card-clickable"
           style={{ '--delay': '100ms', '--glow-color': 'var(--color-warning)' }}
-          onClick={() => navigate('/requests')}
+          onClick={() => navigate('/dashboard/requests')}
         >
           <div className="stat-card-header">
             <span className="stat-card-label">Pending Requests</span>
@@ -113,7 +113,7 @@ export default function Home() {
         <div
           className="card stat-card stat-card-clickable"
           style={{ '--delay': '200ms', '--glow-color': 'var(--color-cyan)' }}
-          onClick={() => navigate('/sessions')}
+          onClick={() => navigate('/dashboard/sessions')}
         >
           <div className="stat-card-header">
             <span className="stat-card-label">Active Sessions</span>
@@ -131,7 +131,7 @@ export default function Home() {
         <div
           className="card stat-card stat-card-clickable"
           style={{ '--delay': '300ms', '--glow-color': 'var(--color-error)' }}
-          onClick={() => navigate('/payments')}
+          onClick={() => navigate('/dashboard/payments')}
         >
           <div className="stat-card-header">
             <span className="stat-card-label">Payment Pending</span>
@@ -171,7 +171,7 @@ export default function Home() {
         <div className="card dashboard-card">
           <div className="dashboard-card-header">
             <h3>Station Overview</h3>
-            <button className="btn btn-ghost btn-sm" onClick={() => navigate('/stations')}>
+            <button className="btn btn-ghost btn-sm" onClick={() => navigate('/dashboard/stations')}>
               View All →
             </button>
           </div>
@@ -213,7 +213,7 @@ export default function Home() {
         <div className="card dashboard-card">
           <div className="dashboard-card-header">
             <h3>Active Sessions</h3>
-            <button className="btn btn-ghost btn-sm" onClick={() => navigate('/sessions')}>
+            <button className="btn btn-ghost btn-sm" onClick={() => navigate('/dashboard/sessions')}>
               View All →
             </button>
           </div>
@@ -227,7 +227,7 @@ export default function Home() {
                     <span className="td-bold">{s.station?.name}</span>
                     <span className="badge badge-type">{s.station?.type}</span>
                   </div>
-                  <div className="dashboard-session-customer">{s.customer?.name}</div>
+                  <div className="dashboard-session-customer">{s.customer?.name || s.customerName || 'Walk-in'}</div>
                   <div className="dashboard-session-meta">
                     <span>{formatDuration(s.elapsedMinutes)}</span>
                     <span className="td-bold">₹{s.currentBill || 0}</span>
@@ -256,7 +256,15 @@ export default function Home() {
         {currentCafe?.slug && (
           <div className="cafe-info-item">
             <span className="cafe-info-label">Customer Link</span>
-            <span className="cafe-info-value cafe-info-link">/cafe/{currentCafe.slug}</span>
+            <a
+              href={`/cafe/${currentCafe.slug}`}
+              target="_blank"
+              rel="noreferrer"
+              className="cafe-info-value cafe-info-link"
+              style={{ textDecoration: 'underline', cursor: 'pointer' }}
+            >
+              /cafe/{currentCafe.slug}
+            </a>
           </div>
         )}
       </div>

@@ -2,9 +2,15 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import config from './config/index.js';
 import apiRouter from './routes/index.js';
 import { AppError, errorHandler } from './middleware/errorHandler.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const publicDir = join(__dirname, '..', 'public');
 
 const app = express();
 
@@ -35,6 +41,14 @@ app.use('/api', apiRouter);
 // 404 for unmatched API routes
 app.all('/api/*', (req, res, next) => {
   next(new AppError(`Route ${req.originalUrl} not found`, 404));
+});
+
+// Serve static frontend assets (CSS, JS, images)
+app.use(express.static(publicDir));
+
+// SPA fallback — serve index.html for all non-API routes so React Router handles routing
+app.get('*', (req, res) => {
+  res.sendFile(join(publicDir, 'index.html'));
 });
 
 // Centralized error handler

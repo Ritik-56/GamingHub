@@ -7,22 +7,50 @@ const paymentSchema = new mongoose.Schema(
     session: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Session',
-      required: true,
+      required: false,
+      default: null,
     },
     cafe: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Cafe',
       required: true,
     },
+    station: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Station',
+      required: false,
+      default: null,
+    },
     customer: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: true,
+      required: false,
+      default: null,
+    },
+    customerName: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    customerPhone: {
+      type: String,
+      trim: true,
+      default: null,
     },
     amount: {
       type: Number,
       required: true,
       min: 0,
+    },
+    paymentMethod: {
+      type: String,
+      enum: ['CASH', 'UPI', 'CARD', 'OTHER'],
+      default: 'CASH',
+    },
+    notes: {
+      type: String,
+      trim: true,
+      default: null,
     },
     status: {
       type: String,
@@ -41,8 +69,9 @@ const paymentSchema = new mongoose.Schema(
 );
 
 paymentSchema.index({ cafe: 1, status: 1 });
-paymentSchema.index({ session: 1 }, { unique: true });
+paymentSchema.index({ session: 1 }, { unique: true, sparse: true });
 paymentSchema.index({ customer: 1, cafe: 1 });
+paymentSchema.index({ cafe: 1, customerPhone: 1 });
 
 export { PAYMENT_STATUSES };
 const Payment = mongoose.model('Payment', paymentSchema);

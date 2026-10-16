@@ -1,14 +1,25 @@
 import { Router } from 'express';
+import { body, validationResult } from 'express-validator';
 import mongoose from 'mongoose';
 import ExcelJS from 'exceljs';
 import Payment from '../models/Payment.js';
 import Session from '../models/Session.js';
 import Station from '../models/Station.js';
+import User from '../models/User.js';
 import { authenticate } from '../middleware/auth.js';
 import { requireCafeRole } from '../middleware/cafeAuth.js';
 import { AppError } from '../middleware/errorHandler.js';
 
 const router = Router({ mergeParams: true });
+
+const validate = (req, res, next) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    const messages = errors.array().map((e) => e.msg).join(', ');
+    throw new AppError(messages, 400);
+  }
+  next();
+};
 
 /**
  * Build a date range filter for a given date string (YYYY-MM-DD).
@@ -73,9 +84,10 @@ function buildPaymentFilter(cafeId, { status, date, from, to }) {
 function populatePayments(query) {
   return query
     .populate('customer', 'name email phone')
+    .populate('station', 'name type')
     .populate({
       path: 'session',
-      select: 'station startedAt endedAt pricePerHour finalAmount controllersRequested controllerCharge sessionCharge',
+      select: 'station startedAt endedAt pricePerHour finalAmount controllersRequested controllerCharge sessionCharge customerName customerPhone',
       populate: { path: 'station', select: 'name type' },
     })
     .sort({ createdAt: -1 });
@@ -171,21 +183,25 @@ router.get(
       // Add data rows
       payments.forEach((p, i) => {
         const session = p.session;
-        // Controller fields — gracefully handle when not yet implemented (Feature 3)
-        const controllerCount = session?.controllersRequested ?? 0;
-        const controllerCharge = session?.controllerCharge ?? 0;
-        const sessionCharge = session?.sessionCharge ?? (p.amount - controllerCharge);
+        const controllerCount = session?.controllersRequested ?? '—';
+        const controllerCharge = session?.controllerCharge ?? (session ? 0 : '—');
+        const sessionCharge = session?.sessionCharge ?? p.amount;
+        const stationName = session?.station?.name || p.station?.name || 'Counter';
+        const stationType = session?.station?.type || p.station?.type || 'Direct';
+        const duration = session
+          ? formatDuration(session?.startedAt, session?.endedAt)
+          : (p.notes ? `Manual (${p.notes})` : 'Manual Entry');
 
         sheet.addRow({
           sno: i + 1,
           date: p.paidAt
             ? new Date(p.paidAt).toLocaleDateString('en-IN')
             : new Date(p.createdAt).toLocaleDateString('en-IN'),
-          customerName: p.customer?.name || '—',
-          customerPhone: p.customer?.phone || p.customer?.email || '—',
-          station: session?.station?.name || '—',
-          stationType: session?.station?.type || '—',
-          duration: formatDuration(session?.startedAt, session?.endedAt),
+          customerName: p.customer?.name || p.customerName || session?.customerName || '—',
+          customerPhone: p.customer?.phone || p.customer?.email || p.customerPhone || session?.customerPhone || '—',
+          station: stationName,
+          stationType: stationType,
+          duration,
           sessionCharge,
           controllerCount,
           controllerCharge,
@@ -273,6 +289,66 @@ router.post(
       res.json({
         status: 'success',
         data: { payment },
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// POST /api/cafes/:cafeId/payments/manual — staff manually records a payment (staff+)
+router.post(
+  '/manual',
+  authenticate,
+  requireCafeRole('OWNER', 'MANAGER', 'STAFF'),
+  [
+    body('customerName').trim().notEmpty().withMessage('Customer name is required'),
+    body('customerPhone').trim().notEmpty().withMessage('Customer phone is required'),
+    body('amount').isFloat({ min: 0.01 }).withMessage('Valid payment amount is required'),
+    body('stationId').optional({ nullable: true, checkFalsy: true }).isMongoId().withMessage('Invalid station ID'),
+    body('paymentMethod').optional().isIn(['CASH', 'UPI', 'CARD', 'OTHER']).withMessage('Invalid payment method'),
+    body('notes').optional().trim(),
+  ],
+  validate,
+  async (req, res, next) => {
+    try {
+      const { cafeId } = req.params;
+      const { customerName, customerPhone, amount, stationId, paymentMethod, notes } = req.body;
+
+      // Optional check if station belongs to this cafe
+      let validStationId = null;
+      if (stationId) {
+        const station = await Station.findOne({ _id: stationId, cafe: cafeId });
+        if (station) {
+          validStationId = station._id;
+        }
+      }
+
+      // Check if customer phone matches an existing registered user
+      const matchedUser = await User.findOne({ phone: customerPhone.trim() }).select('_id');
+
+      const parsedAmount = Math.round(parseFloat(amount) * 100) / 100;
+
+      const payment = await Payment.create({
+        cafe: cafeId,
+        session: null,
+        station: validStationId,
+        customer: matchedUser?._id || null,
+        customerName: customerName.trim(),
+        customerPhone: customerPhone.trim(),
+        amount: parsedAmount,
+        paymentMethod: paymentMethod || 'CASH',
+        notes: notes?.trim() || null,
+        status: 'PAID',
+        paidAt: new Date(),
+        markedBy: req.user._id,
+      });
+
+      const populatedPayment = await populatePayments(Payment.findById(payment._id));
+
+      res.status(201).json({
+        status: 'success',
+        data: { payment: populatedPayment },
       });
     } catch (err) {
       next(err);

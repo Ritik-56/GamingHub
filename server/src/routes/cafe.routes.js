@@ -100,6 +100,34 @@ router.get('/my', authenticate, async (req, res, next) => {
   }
 });
 
+// GET /api/cafes/public — public listing of active cafés (no auth)
+router.get('/public', async (req, res, next) => {
+  try {
+    const { search } = req.query;
+    const filter = { isActive: true };
+
+    if (search && search.trim()) {
+      const q = search.trim();
+      filter.$or = [
+        { name: { $regex: q, $options: 'i' } },
+        { address: { $regex: q, $options: 'i' } },
+      ];
+    }
+
+    const cafes = await Cafe.find(filter)
+      .select('name slug address phone email pricePerHour currency stationTypes createdAt')
+      .sort({ name: 1 })
+      .limit(100);
+
+    res.json({
+      status: 'success',
+      data: { cafes },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET /api/cafes/slug/:slug — public route for QR entry
 router.get('/slug/:slug', async (req, res, next) => {
   try {
@@ -233,6 +261,55 @@ router.post('/slug/:slug/join', authenticate, async (req, res, next) => {
     next(err);
   }
 });
+
+// GET /api/cafes/:cafeId/customers — list customers of this café (staff+)
+router.get(
+  '/:cafeId/customers',
+  authenticate,
+  requireCafeRole('OWNER', 'MANAGER', 'STAFF'),
+  async (req, res, next) => {
+    try {
+      const { search } = req.query;
+
+      const memberships = await CafeMembership.find({
+        cafe: req.params.cafeId,
+        role: 'CUSTOMER',
+        isActive: true,
+      })
+        .populate('user', 'name email phone')
+        .sort({ createdAt: -1 });
+
+      let customers = memberships
+        .filter((m) => m.user)
+        .map((m) => ({
+          _id: m.user._id,
+          userId: m.user._id,
+          membershipId: m._id,
+          name: m.user.name,
+          email: m.user.email,
+          phone: m.user.phone,
+          joinedAt: m.createdAt,
+        }));
+
+      if (search && search.trim()) {
+        const q = search.trim().toLowerCase();
+        customers = customers.filter(
+          (c) =>
+            (c.name && c.name.toLowerCase().includes(q)) ||
+            (c.email && c.email.toLowerCase().includes(q)) ||
+            (c.phone && c.phone.toLowerCase().includes(q))
+        );
+      }
+
+      res.json({
+        status: 'success',
+        data: { customers },
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
 
 // GET /api/cafes/:cafeId/staff — list all staff members (owner/manager)
 router.get(

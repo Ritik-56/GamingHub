@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import api from '../services/api';
+import { adminApi as api } from '../services/api';
 
 export default function Settings() {
   const { currentCafe, currentRole, fetchCafes } = useAuth();

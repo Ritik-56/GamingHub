@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-import api from '../services/api';
+import { adminApi as api } from '../services/api';
 
 export default function SessionRequests() {
   const { currentCafe } = useAuth();
@@ -8,6 +8,17 @@ export default function SessionRequests() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [processing, setProcessing] = useState(null);
+
+  const [editCounts, setEditCounts] = useState({});
+
+  const getControllerCount = (sessionId, defaultCount = 1) => editCounts[sessionId] ?? (defaultCount || 1);
+  const handleCountChange = (sessionId, delta, currentCount) => {
+    setEditCounts((prev) => {
+      const curr = prev[sessionId] ?? (currentCount || 1);
+      const next = Math.max(1, Math.min(4, curr + delta));
+      return { ...prev, [sessionId]: next };
+    });
+  };
 
   const fetchSessions = useCallback(async () => {
     if (!currentCafe) return;
@@ -36,7 +47,11 @@ export default function SessionRequests() {
     setProcessing(sessionId);
     setError('');
     try {
-      await api.post(`/cafes/${currentCafe._id}/sessions/${sessionId}/approve`);
+      const session = sessions.find((s) => s._id === sessionId);
+      const controllerCount = editCounts[sessionId] ?? (session?.controllersRequested || 1);
+      await api.post(`/cafes/${currentCafe._id}/sessions/${sessionId}/approve`, {
+        controllerCount,
+      });
       await fetchSessions();
     } catch (err) {
       setError(err.message);
@@ -93,43 +108,77 @@ export default function SessionRequests() {
               <tr>
                 <th>Customer</th>
                 <th>Station</th>
+                <th>Controllers</th>
                 <th>Requested</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {sessions.map((s) => (
-                <tr key={s._id}>
-                  <td>
-                    <div className="td-bold">{s.customer?.name}</div>
-                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>
-                      {s.customer?.phone || s.customer?.email}
-                    </div>
-                  </td>
-                  <td>
-                    <span className="td-bold">{s.station?.name}</span>
-                    {' '}
-                    <span className="badge badge-type">{s.station?.type}</span>
-                  </td>
-                  <td>{timeSince(s.requestedAt)}</td>
-                  <td className="td-actions">
-                    <button
-                      className="btn btn-primary btn-sm"
-                      onClick={() => handleApprove(s._id)}
-                      disabled={processing === s._id}
-                    >
-                      {processing === s._id ? '...' : 'Approve'}
-                    </button>
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      onClick={() => handleReject(s._id)}
-                      disabled={processing === s._id}
-                    >
-                      Reject
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {sessions.map((s) => {
+                const count = getControllerCount(s._id, s.controllersRequested);
+                return (
+                  <tr key={s._id}>
+                    <td>
+                      <div className="td-bold">{s.customer?.name || s.customerName || 'Customer'}</div>
+                      <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>
+                        {s.customer?.phone || s.customerPhone || s.customer?.email || '—'}
+                      </div>
+                    </td>
+                    <td>
+                      <span className="td-bold">{s.station?.name}</span>
+                      {' '}
+                      <span className="badge badge-type">{s.station?.type}</span>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <button
+                          type="button"
+                          className="stepper-btn"
+                          style={{ width: '22px', height: '22px', fontSize: '12px' }}
+                          onClick={() => handleCountChange(s._id, -1, s.controllersRequested)}
+                          disabled={count <= 1 || processing === s._id}
+                          title="Decrease controller count"
+                        >
+                          −
+                        </button>
+                        <span style={{ fontWeight: 'bold', minWidth: '16px', textAlign: 'center' }}>
+                          {count}
+                        </span>
+                        <button
+                          type="button"
+                          className="stepper-btn"
+                          style={{ width: '22px', height: '22px', fontSize: '12px' }}
+                          onClick={() => handleCountChange(s._id, 1, s.controllersRequested)}
+                          disabled={count >= 4 || processing === s._id}
+                          title="Increase controller count"
+                        >
+                          +
+                        </button>
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginTop: '2px' }}>
+                        ₹{count * 100}/hr
+                      </div>
+                    </td>
+                    <td>{timeSince(s.requestedAt)}</td>
+                    <td className="td-actions">
+                      <button
+                        className="btn btn-primary btn-sm"
+                        onClick={() => handleApprove(s._id)}
+                        disabled={processing === s._id}
+                      >
+                        {processing === s._id ? '...' : 'Approve'}
+                      </button>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => handleReject(s._id)}
+                        disabled={processing === s._id}
+                      >
+                        Reject
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

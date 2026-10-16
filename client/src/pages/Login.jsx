@@ -3,16 +3,26 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export default function Login() {
-  const [isRegister, setIsRegister] = useState(false);
+  const location = useLocation();
+  const locationState = location.state || {};
+
+  // Determine context: customer flow vs owner/admin flow.
+  // Also supports ?mode=owner in the URL (used by AdminRoute redirect).
+  const searchParams = new URLSearchParams(location.search);
+  const modeParam = searchParams.get('mode');
+  const isCustomerContext =
+    locationState.mode === 'customer' ||
+    modeParam === 'customer' ||
+    locationState.from?.startsWith('/cafe/');
+
+  const [isRegister, setIsRegister] = useState(locationState.register === true);
   const [form, setForm] = useState({ name: '', email: '', phone: '', password: '' });
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const { login, register } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
-  const from = location.state?.from || '/';
-  const isCustomerLogin = location.state?.from?.startsWith('/cafe/');
+
   const handleChange = (e) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
     setError('');
@@ -24,22 +34,29 @@ export default function Login() {
     setSubmitting(true);
 
     try {
+      const scope = isCustomerContext ? 'customer' : 'admin';
+
+      let result;
       if (isRegister) {
-        await register(
-  form.name,
-  form.email,
-  form.phone,
-  form.password,
-  isCustomerLogin ? 'customer' : 'admin'
-);
+        result = await register(form.name, form.email, form.phone, form.password, scope);
       } else {
-        await login(
-  form.email,
-  form.password,
-  isCustomerLogin ? 'customer' : 'admin'
-);
+        result = await login(form.email, form.password, scope);
       }
-      navigate(from, { replace: true });
+
+      if (isCustomerContext) {
+        // Customer: always return to the global landing page (or explicitly
+        // provided `from` destination if it is a café page).
+        const dest = locationState.from?.startsWith('/cafe/')
+          ? locationState.from
+          : '/';
+        navigate(dest, { replace: true });
+      } else {
+        // Owner / admin: the login() call already awaited fetchCafes() so
+        // we read the cafes from the result value rather than stale React state.
+        // We rely on the route guards (RequireCafe / SetupRoute) to decide the
+        // exact destination — just navigate to /dashboard and let them handle it.
+        navigate('/dashboard', { replace: true });
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -47,13 +64,43 @@ export default function Login() {
     }
   };
 
+  const contextLabel = isCustomerContext ? 'Customer' : 'Owner / Staff';
+  const contextIcon = isCustomerContext ? '🎮' : '🏪';
+
   return (
     <div className="auth-page">
       <div className="auth-container">
         <div className="auth-header">
           <div className="auth-brand">
-            <div className="auth-brand-icon">🎮</div>
-            <span className="auth-brand-text">Gaming Hub</span>
+            <div
+              className="auth-brand-icon"
+              style={{ cursor: 'pointer' }}
+              onClick={() => navigate('/')}
+              title="Back to homepage"
+            >
+              🎮
+            </div>
+            <span
+              className="auth-brand-text"
+              style={{ cursor: 'pointer' }}
+              onClick={() => navigate('/')}
+            >
+              Gaming Hub
+            </span>
+          </div>
+          <div className="auth-context-badge" style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.4rem',
+            padding: '0.25rem 0.75rem',
+            background: 'var(--color-bg-card)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--radius-full)',
+            fontSize: 'var(--font-size-xs)',
+            color: 'var(--color-text-secondary)',
+            marginBottom: 'var(--space-4)',
+          }}>
+            {contextIcon} {contextLabel}
           </div>
           <h1>{isRegister ? 'Create Account' : 'Welcome Back'}</h1>
           <p>{isRegister ? 'Set up your account to get started' : 'Sign in to your account'}</p>
@@ -94,7 +141,9 @@ export default function Login() {
 
           {isRegister && (
             <div className="form-group">
-              <label className="form-label" htmlFor="auth-phone">Phone <span className="form-optional">(optional)</span></label>
+              <label className="form-label" htmlFor="auth-phone">
+                Phone <span className="form-optional">(optional)</span>
+              </label>
               <input
                 id="auth-phone"
                 className="form-input"
@@ -129,6 +178,7 @@ export default function Login() {
           <button
             type="submit"
             className="btn btn-primary auth-submit"
+            id="auth-submit-btn"
             disabled={submitting}
           >
             {submitting
@@ -147,6 +197,32 @@ export default function Login() {
             onClick={() => { setIsRegister(!isRegister); setError(''); }}
           >
             {isRegister ? 'Sign In' : 'Create Account'}
+          </button>
+        </div>
+
+        <div style={{ textAlign: 'center', marginTop: 'var(--space-4)' }}>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={() => navigate('/')}
+          >
+            ← Back to Cafés
+          </button>
+          {/* Switch context */}
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            style={{ marginLeft: 'var(--space-2)' }}
+            onClick={() =>
+              navigate('/login', {
+                state: {
+                  mode: isCustomerContext ? 'owner' : 'customer',
+                  from: locationState.from,
+                },
+              })
+            }
+          >
+            {isCustomerContext ? '🏪 Owner Login' : '🎮 Customer Login'}
           </button>
         </div>
       </div>
