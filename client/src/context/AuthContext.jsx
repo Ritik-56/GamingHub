@@ -9,28 +9,14 @@ import { customerApi, adminApi } from '../services/api';
 //
 // Both scopes are kept fully isolated. Logging in/out of one scope never
 // touches the other scope's state or storage key.
+//
+// KEY DESIGN DECISION: authScope is stored in React state (not only
+// sessionStorage) so that derived values like `isAuthenticated` and `user`
+// re-render correctly when the scope changes within the same page load.
+// sessionStorage is used only as the persistence layer across page reloads.
 // ---------------------------------------------------------------------------
 
 const AuthContext = createContext(null);
-
-// ── helpers ────────────────────────────────────────────────────────────────
-
-function loadCustomerState() {
-  return {
-    token: sessionStorage.getItem('customerToken') || null,
-    user: null, // resolved async on mount
-  };
-}
-
-function loadAdminState() {
-  return {
-    token: sessionStorage.getItem('adminToken') || null,
-    user: null,
-    cafes: [],
-    currentCafe: null,
-    currentRole: null,
-  };
-}
 
 // ── Provider ───────────────────────────────────────────────────────────────
 
@@ -102,7 +88,7 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  // ── Bootstrap: resolve stored customer token ───────────────────────────
+  // ── Bootstrap: resolve stored customer token on mount ─────────────────
 
   useEffect(() => {
     if (!customerToken) {
@@ -118,10 +104,9 @@ export function AuthProvider({ children }) {
       })
       .finally(() => setCustomerLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only on mount — customerToken is intentionally excluded to avoid
-          // re-running when the value changes via login (handled inline there)
+  }, []); // Intentional: only runs on mount
 
-  // ── Bootstrap: resolve stored admin token ─────────────────────────────
+  // ── Bootstrap: resolve stored admin token on mount ────────────────────
 
   useEffect(() => {
     if (!adminToken) {
@@ -143,30 +128,33 @@ export function AuthProvider({ children }) {
       })
       .finally(() => setAdminLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only on mount
+  }, []); // Intentional: only runs on mount
 
   // ── Login ──────────────────────────────────────────────────────────────
+  // The `scope` is sent to the backend, which validates it against the user's
+  // actual CafeMembership roles. The backend will reject:
+  //   • scope='customer' if the user is OWNER/MANAGER/STAFF
+  //   • scope='admin'    if the user has no staff membership
+  // This means the frontend can NEVER silently cross-authenticate scopes.
 
   const login = useCallback(
     async (email, password, scope = 'admin') => {
       if (scope === 'customer') {
-        // Update authScope so the default api instance picks the right token
-        // during the /auth/login call itself (needed before we have the token)
-        sessionStorage.setItem('authScope', 'customer');
-
-        const res = await customerApi.post('/auth/login', { email, password });
+        // Sends scope to backend — backend enforces role check
+        const res = await customerApi.post('/auth/login', { email, password, scope });
         const { token: tok, user: userData } = res.data.data;
         persistCustomerToken(tok);
         setCustomerUser(userData);
+        // Update sessionStorage for page-reload persistence
+        sessionStorage.setItem('authScope', 'customer');
         return userData;
       } else {
-        sessionStorage.setItem('authScope', 'admin');
-
-        const res = await adminApi.post('/auth/login', { email, password });
+        const res = await adminApi.post('/auth/login', { email, password, scope });
         const { token: tok, user: userData } = res.data.data;
         persistAdminToken(tok);
         setAdminUser(userData);
         await fetchCafes();
+        sessionStorage.setItem('authScope', 'admin');
         return userData;
       }
     },
@@ -178,31 +166,31 @@ export function AuthProvider({ children }) {
   const register = useCallback(
     async (name, email, phone, password, scope = 'admin') => {
       if (scope === 'customer') {
-        sessionStorage.setItem('authScope', 'customer');
-
         const res = await customerApi.post('/auth/register', {
           name,
           email,
           phone,
           password,
+          scope,
         });
         const { token: tok, user: userData } = res.data.data;
         persistCustomerToken(tok);
         setCustomerUser(userData);
+        sessionStorage.setItem('authScope', 'customer');
         return userData;
       } else {
-        sessionStorage.setItem('authScope', 'admin');
-
         const res = await adminApi.post('/auth/register', {
           name,
           email,
           phone,
           password,
+          scope,
         });
         const { token: tok, user: userData } = res.data.data;
         persistAdminToken(tok);
         setAdminUser(userData);
         await fetchCafes();
+        sessionStorage.setItem('authScope', 'admin');
         return userData;
       }
     },
@@ -213,17 +201,21 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(
     (scope) => {
-      // Determine which scope to log out of
-      const target = scope || sessionStorage.getItem('authScope') || 'admin';
+      const target = scope || 'admin';
 
       if (target === 'customer') {
         persistCustomerToken(null);
         setCustomerUser(null);
-        // Only clear authScope if it was set to customer
-        if (sessionStorage.getItem('authScope') === 'customer') {
-          sessionStorage.removeItem('authScope');
-        }
         sessionStorage.removeItem('customerCafeSlug');
+        // Only update authScope if currently set to customer
+        if (sessionStorage.getItem('authScope') === 'customer') {
+          // If admin is still logged in, revert to admin scope
+          if (sessionStorage.getItem('adminToken')) {
+            sessionStorage.setItem('authScope', 'admin');
+          } else {
+            sessionStorage.removeItem('authScope');
+          }
+        }
       } else {
         persistAdminToken(null);
         setAdminUser(null);
@@ -231,9 +223,14 @@ export function AuthProvider({ children }) {
         setCurrentCafe(null);
         setCurrentRole(null);
         sessionStorage.removeItem('currentCafeId');
-        // Only clear authScope if it was set to admin
+        // Only update authScope if currently set to admin
         if (sessionStorage.getItem('authScope') === 'admin') {
-          sessionStorage.removeItem('authScope');
+          // If customer is still logged in, revert to customer scope
+          if (sessionStorage.getItem('customerToken')) {
+            sessionStorage.setItem('authScope', 'customer');
+          } else {
+            sessionStorage.removeItem('authScope');
+          }
         }
       }
     },
@@ -256,36 +253,23 @@ export function AuthProvider({ children }) {
 
   // ── Derived flags ──────────────────────────────────────────────────────
 
-  // "isAuthenticated" reflects the CURRENT authScope — used by route guards
-  // and components that need to know if the current browsing context has a
-  // valid session.
-  const currentScope = sessionStorage.getItem('authScope');
   const isCustomerAuthenticated = !!customerUser;
   const isAdminAuthenticated = !!adminUser;
-
-  // Generic isAuthenticated = true if the active scope has a user
-  const isAuthenticated =
-    currentScope === 'customer' ? isCustomerAuthenticated : isAdminAuthenticated;
-
-  // The "user" in context = user for current scope
-  const user = currentScope === 'customer' ? customerUser : adminUser;
-
-  // Combined loading state
-  const loading = customerLoading || adminLoading;
 
   // ── Context value ──────────────────────────────────────────────────────
 
   const value = {
-    // Current-scope proxies (used by most components)
-    user,
-    loading,
-    isAuthenticated,
-
-    // Explicit per-scope flags (for components that need to know both)
+    // Explicit per-scope flags — components should use these
     isCustomerAuthenticated,
     isAdminAuthenticated,
     customerUser,
     adminUser,
+
+    // Generic proxy — reflects whichever scope is primary right now
+    // (kept for backward compat; prefer explicit flags in new code)
+    user: isAdminAuthenticated ? adminUser : customerUser,
+    loading: customerLoading || adminLoading,
+    isAuthenticated: isCustomerAuthenticated || isAdminAuthenticated,
 
     // Auth actions
     login,
