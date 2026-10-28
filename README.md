@@ -270,6 +270,7 @@ Gaming Hub demonstrates practical full-stack engineering through authentication,
 The long-term goal is to provide gaming cafés with a unified platform for managing their daily operations while giving customers a simpler way to discover cafés and access gaming sessions.
 
 ---
+[Live Demo Link](https://gaminghub-5qac.onrender.com/) 
 
 ## 👨‍💻 Author
 
@@ -277,7 +278,7 @@ The long-term goal is to provide gaming cafés with a unified platform for manag
 
 Full-Stack Developer | MERN Stack | Backend Engineering | Cloud & DevOps
 
-[GitHub](https://github.com/YOUR_GITHUB_USERNAME) · [LinkedIn](https://www.linkedin.com/in/YOUR_LINKEDIN_USERNAME/)
+[GitHub](https://github.com/Ritik-56) · [LinkedIn](https://www.linkedin.com/in/ritik-patil-542660245/)
 
 ---
 
