@@ -55,7 +55,12 @@ export default function ActiveSessions() {
     return `${mins}m`;
   };
 
-  if (loading) return <div className="page-section-empty">Loading sessions...</div>;
+  if (loading) return (
+    <div className="page-section-empty">
+      <div className="spinner" />
+      Loading sessions…
+    </div>
+  );
 
   return (
     <div className="page-section">

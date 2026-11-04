@@ -82,7 +82,12 @@ export default function SessionRequests() {
     return `${hrs}h ${mins % 60}m ago`;
   };
 
-  if (loading) return <div className="page-section-empty">Loading requests...</div>;
+  if (loading) return (
+    <div className="page-section-empty">
+      <div className="spinner" />
+      Loading requests…
+    </div>
+  );
 
   return (
     <div className="page-section">

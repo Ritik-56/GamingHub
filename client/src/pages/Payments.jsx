@@ -240,7 +240,12 @@ export default function Payments() {
     }
   };
 
-  if (loading) return <div className="page-section-empty">Loading payments...</div>;
+  if (loading) return (
+    <div className="page-section-empty">
+      <div className="spinner" />
+      Loading payments…
+    </div>
+  );
 
   return (
     <div className="page-section">

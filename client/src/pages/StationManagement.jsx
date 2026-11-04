@@ -176,7 +176,12 @@ export default function StationManagement() {
   const availableStations = stations.filter((s) => s.status === 'AVAILABLE' && s.isActive);
   const selectedStationObj = stations.find((s) => s._id === selectedStationId);
 
-  if (loading) return <div className="page-section-empty">Loading stations...</div>;
+  if (loading) return (
+    <div className="page-section-empty">
+      <div className="spinner" />
+      Loading stations…
+    </div>
+  );
 
   return (
     <div className="page-section">

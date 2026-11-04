@@ -26,7 +26,6 @@ export default function CafeSetup() {
     e.preventDefault();
     setError('');
     setSubmitting(true);
-
     try {
       await api.post('/cafes', {
         ...form,
@@ -42,18 +41,22 @@ export default function CafeSetup() {
   };
 
   return (
-    <div className="auth-page">
-      <div className="auth-container" style={{ maxWidth: '480px' }}>
-        <div className="auth-header">
-          <div className="auth-brand">
+    <div className="setup-page">
+      <div className="setup-card">
+        <div className="setup-header">
+          <div
+            className="auth-brand"
+            style={{ cursor: 'pointer' }}
+            onClick={() => navigate('/')}
+          >
             <div className="auth-brand-icon">🎮</div>
             <span className="auth-brand-text">Gaming Hub</span>
           </div>
           <h1>Set Up Your Café</h1>
-          <p>Configure your gaming café to get started</p>
+          <p>Configure your gaming café to start accepting customers.</p>
         </div>
 
-        <form className="auth-form" onSubmit={handleSubmit}>
+        <form className="setup-form" onSubmit={handleSubmit}>
           <div className="form-group">
             <label className="form-label" htmlFor="cafe-name">Café Name</label>
             <input
@@ -94,7 +97,6 @@ export default function CafeSetup() {
                 onChange={handleChange}
               />
             </div>
-
             <div className="form-group">
               <label className="form-label" htmlFor="cafe-email">Contact Email</label>
               <input
@@ -123,14 +125,14 @@ export default function CafeSetup() {
             />
           </div>
 
-          {error && <div className="form-error">{error}</div>}
+          {error && <div className="form-error">⚠ {error}</div>}
 
           <button
             type="submit"
             className="btn btn-primary auth-submit"
             disabled={submitting}
           >
-            {submitting ? 'Creating Café...' : 'Create Café'}
+            {submitting ? 'Creating Café…' : 'Create Café →'}
           </button>
         </form>
       </div>

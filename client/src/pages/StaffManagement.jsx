@@ -79,7 +79,12 @@ export default function StaffManagement() {
     return map[role] || '';
   };
 
-  if (loading) return <div className="page-section-empty">Loading staff...</div>;
+  if (loading) return (
+    <div className="page-section-empty">
+      <div className="spinner" />
+      Loading staff…
+    </div>
+  );
 
   return (
     <div className="page-section">
