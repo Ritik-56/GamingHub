@@ -19,6 +19,7 @@ export async function authenticate(req, res, next) {
     }
 
     req.user = user;
+    req.tokenScope = decoded.scope || null;
     next();
   } catch (err) {
     if (err instanceof AppError) return next(err);
@@ -29,8 +30,8 @@ export async function authenticate(req, res, next) {
   }
 }
 
-export function signToken(userId) {
-  return jwt.sign({ userId }, config.jwtSecret, {
+export function signToken(userId, scope = 'customer') {
+  return jwt.sign({ userId, scope }, config.jwtSecret, {
     expiresIn: config.jwtExpiresIn,
   });
 }

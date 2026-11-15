@@ -42,15 +42,15 @@ export default function MainLayout() {
           <div
             className="sidebar-brand-icon"
             style={{ cursor: 'pointer' }}
-            onClick={() => { navigate('/'); close(); }}
-            title="Back to homepage"
+            onClick={() => { navigate('/dashboard'); close(); }}
+            title="Dashboard home"
           >
             🎮
           </div>
           <span
             className="sidebar-brand-text"
             style={{ cursor: 'pointer' }}
-            onClick={() => { navigate('/'); close(); }}
+            onClick={() => { navigate('/dashboard'); close(); }}
           >
             Gaming Hub
           </span>

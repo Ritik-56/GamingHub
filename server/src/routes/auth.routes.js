@@ -65,7 +65,7 @@ router.post(
       }
 
       const user = await User.create({ name, email, phone, password });
-      const token = signToken(user._id);
+      const token = signToken(user._id, scope);
 
       res.status(201).json({
         status: 'success',
@@ -145,7 +145,7 @@ router.post(
         );
       }
 
-      const token = signToken(user._id);
+      const token = signToken(user._id, scope);
 
       res.json({
         status: 'success',
@@ -162,11 +162,54 @@ router.post(
 );
 
 // GET /api/auth/me
-router.get('/me', authenticate, (req, res) => {
-  res.json({
-    status: 'success',
-    data: { user: req.user.toSafeObject() },
-  });
+router.get('/me', authenticate, async (req, res, next) => {
+  try {
+    const tokenScope = req.tokenScope;
+
+    // Old tokens without scope embedded — force re-login
+    if (!tokenScope) {
+      return next(new AppError('Session expired. Please sign in again.', 401));
+    }
+
+    if (tokenScope === 'admin') {
+      // Verify user still has an active staff/owner membership
+      const staffMembership = await CafeMembership.findOne({
+        user: req.user._id,
+        role: { $in: STAFF_ROLES },
+        isActive: true,
+      });
+      if (!staffMembership) {
+        return next(
+          new AppError(
+            'Admin session invalid — no active staff role. Please use the Customer login.',
+            403
+          )
+        );
+      }
+    } else if (tokenScope === 'customer') {
+      // Verify user isn't a staff member using a customer-scoped token
+      const staffMembership = await CafeMembership.findOne({
+        user: req.user._id,
+        role: { $in: STAFF_ROLES },
+        isActive: true,
+      });
+      if (staffMembership) {
+        return next(
+          new AppError(
+            'This account belongs to a café owner or staff member. Please use the Owner / Staff login.',
+            403
+          )
+        );
+      }
+    }
+
+    res.json({
+      status: 'success',
+      data: { user: req.user.toSafeObject() },
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 export default router;

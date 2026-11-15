@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import MainLayout from './layouts/MainLayout';
 import Landing from './pages/Landing';
@@ -19,17 +19,28 @@ import CafeEntry from './pages/CafeEntry';
 // ---------------------------------------------------------------------------
 function GuestRoute({ children }) {
   const { isAdminAuthenticated, isCustomerAuthenticated, loading, cafes } = useAuth();
+  const location = useLocation();
 
   if (loading) return <div className="page-loader">Loading...</div>;
 
-  // Check the mode from URL state would require useLocation here, but
-  // we can't know it at this level. Instead we redirect if EITHER scope is
-  // authenticated — the Login page itself handles the right destination.
-  // Priority: if admin is logged in, send to dashboard. If only customer is
-  // logged in, let them through to login (they may want to switch scope).
-  if (isAdminAuthenticated) {
+  // Determine which scope this login page is for
+  const locationState = location.state || {};
+  const searchParams = new URLSearchParams(location.search);
+  const modeParam = searchParams.get('mode');
+  const isCustomerMode =
+    locationState.mode === 'customer' ||
+    modeParam === 'customer' ||
+    locationState.from?.startsWith('/cafe/');
+
+  // If admin is logged in and trying to reach owner login, redirect to dashboard
+  if (isAdminAuthenticated && !isCustomerMode) {
     if (cafes && cafes.length > 0) return <Navigate to="/dashboard" replace />;
     return <Navigate to="/setup" replace />;
+  }
+
+  // If customer is logged in and trying to reach customer login, redirect to /
+  if (isCustomerAuthenticated && isCustomerMode) {
+    return <Navigate to="/" replace />;
   }
 
   return children;

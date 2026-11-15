@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { publicApi as api } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import heroImg from '../assets/hero-arena.jpg';
 import cafeCoverImg from '../assets/cafe-cover.jpg';
 
 export default function Landing() {
   const navigate = useNavigate();
+  const { isCustomerAuthenticated, isAdminAuthenticated, customerUser, logout } = useAuth();
 
   const [cafes, setCafes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -78,25 +80,54 @@ export default function Landing() {
             <button className="landing-nav-link" onClick={() => scrollToSection('how-it-works')}>
               How it Works
             </button>
-            <button className="landing-nav-link" onClick={() => navigate('/login', { state: { mode: 'owner' } })}>
-              For Owners
-            </button>
+            {!isAdminAuthenticated && (
+              <button className="landing-nav-link" onClick={() => navigate('/login', { state: { mode: 'owner' } })}>
+                For Owners
+              </button>
+            )}
           </nav>
 
           {/* Auth buttons */}
           <div className="landing-header-actions">
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={() => navigate('/login', { state: { mode: 'customer' } })}
-            >
-              Customer Login
-            </button>
-            <button
-              className="btn btn-primary btn-sm"
-              onClick={() => navigate('/login', { state: { mode: 'owner' } })}
-            >
-              Owner Login
-            </button>
+            {isCustomerAuthenticated ? (
+              <>
+                <span className="landing-user-greeting" style={{
+                  color: 'var(--color-text-muted)',
+                  fontSize: 'var(--font-size-sm)',
+                  marginRight: 'var(--space-2)',
+                }}>
+                  Hi, {customerUser?.name?.split(' ')[0]}
+                </span>
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => { logout('customer'); }}
+                >
+                  Logout
+                </button>
+              </>
+            ) : isAdminAuthenticated ? (
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={() => navigate('/dashboard')}
+              >
+                Dashboard →
+              </button>
+            ) : (
+              <>
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => navigate('/login', { state: { mode: 'customer' } })}
+                >
+                  Customer Login
+                </button>
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={() => navigate('/login', { state: { mode: 'owner' } })}
+                >
+                  Owner Login
+                </button>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -167,23 +198,41 @@ export default function Landing() {
 
           {/* CTA row */}
           <div className="landing-cta-row">
-            <button
-              className="btn btn-ghost"
-              onClick={() =>
-                navigate('/login', { state: { mode: 'customer', register: true } })
-              }
-            >
-              Join as a Player
-            </button>
-            <button
-              className="btn btn-primary"
-              id="landing-register-cafe"
-              onClick={() =>
-                navigate('/login', { state: { mode: 'owner', register: true } })
-              }
-            >
-              Register Your Café →
-            </button>
+            {isCustomerAuthenticated ? (
+              <button
+                className="btn btn-primary"
+                onClick={() => scrollToSection('cafes-section')}
+              >
+                Browse Cafés ↓
+              </button>
+            ) : isAdminAuthenticated ? (
+              <button
+                className="btn btn-primary"
+                onClick={() => navigate('/dashboard')}
+              >
+                Go to Dashboard →
+              </button>
+            ) : (
+              <>
+                <button
+                  className="btn btn-ghost"
+                  onClick={() =>
+                    navigate('/login', { state: { mode: 'customer', register: true } })
+                  }
+                >
+                  Join as a Player
+                </button>
+                <button
+                  className="btn btn-primary"
+                  id="landing-register-cafe"
+                  onClick={() =>
+                    navigate('/login', { state: { mode: 'owner', register: true } })
+                  }
+                >
+                  Register Your Café →
+                </button>
+              </>
+            )}
           </div>
         </div>
       </section>
@@ -277,14 +326,16 @@ export default function Landing() {
                   ? `No cafés match "${search}". Try a different search.`
                   : 'No cafés registered yet. Be the first!'}
               </p>
-              <button
-                className="btn btn-primary"
-                onClick={() =>
-                  navigate('/login', { state: { mode: 'owner', register: true } })
-                }
-              >
-                Register Your Café
-              </button>
+              {!isCustomerAuthenticated && !isAdminAuthenticated && (
+                <button
+                  className="btn btn-primary"
+                  onClick={() =>
+                    navigate('/login', { state: { mode: 'owner', register: true } })
+                  }
+                >
+                  Register Your Café
+                </button>
+              )}
             </div>
           ) : (
             <div className="landing-cafe-grid">
@@ -315,18 +366,36 @@ export default function Landing() {
           </div>
 
           <div className="landing-footer-links">
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={() => navigate('/login', { state: { mode: 'owner' } })}
-            >
-              Owner Portal
-            </button>
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={() => navigate('/login', { state: { mode: 'customer' } })}
-            >
-              Customer Login
-            </button>
+            {isCustomerAuthenticated ? (
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={() => { logout('customer'); }}
+              >
+                Sign Out
+              </button>
+            ) : isAdminAuthenticated ? (
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={() => navigate('/dashboard')}
+              >
+                Owner Dashboard
+              </button>
+            ) : (
+              <>
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => navigate('/login', { state: { mode: 'owner' } })}
+                >
+                  Owner Portal
+                </button>
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => navigate('/login', { state: { mode: 'customer' } })}
+                >
+                  Customer Login
+                </button>
+              </>
+            )}
           </div>
         </div>
       </footer>
