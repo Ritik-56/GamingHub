@@ -1,16 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { adminApi as api } from '../services/api';
+import LocationPicker from '../components/LocationPicker';
 
 export default function Settings() {
   const { currentCafe, currentRole, fetchCafes } = useAuth();
   const [form, setForm] = useState({
     name: '',
-    address: '',
     phone: '',
     email: '',
     pricePerHour: '',
   });
+  const [location, setLocation] = useState({ lat: null, lng: null, address: '' });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [saving, setSaving] = useState(false);
@@ -21,11 +22,21 @@ export default function Settings() {
     if (currentCafe) {
       setForm({
         name: currentCafe.name || '',
-        address: currentCafe.address || '',
         phone: currentCafe.phone || '',
         email: currentCafe.email || '',
         pricePerHour: currentCafe.pricePerHour?.toString() || '100',
       });
+      // Restore existing location if set
+      const coords = currentCafe.location?.coordinates;
+      if (coords?.length === 2) {
+        setLocation({
+          lat: coords[1],
+          lng: coords[0],
+          address: currentCafe.address || '',
+        });
+      } else {
+        setLocation({ lat: null, lng: null, address: currentCafe.address || '' });
+      }
     }
   }, [currentCafe]);
 
@@ -42,10 +53,15 @@ export default function Settings() {
     setSuccess('');
 
     try {
-      await api.put(`/cafes/${currentCafe._id}`, {
+      const payload = {
         ...form,
         pricePerHour: parseFloat(form.pricePerHour) || 100,
-      });
+        address: location.address || '',
+      };
+      if (location.lat && location.lng) {
+        payload.location = { type: 'Point', coordinates: [location.lng, location.lat] };
+      }
+      await api.put(`/cafes/${currentCafe._id}`, payload);
       await fetchCafes();
       setSuccess('Settings saved successfully.');
     } catch (err) {
@@ -86,17 +102,12 @@ export default function Settings() {
               />
             </div>
 
-            <div className="form-group">
-              <label className="form-label" htmlFor="settings-address">Address</label>
-              <input
-                id="settings-address"
-                className="form-input"
-                type="text"
-                name="address"
-                value={form.address}
-                onChange={handleChange}
-              />
-            </div>
+            {/* Location Picker */}
+            <LocationPicker
+              value={location}
+              onChange={setLocation}
+              disabled={saving}
+            />
 
             <div className="form-row">
               <div className="form-group">

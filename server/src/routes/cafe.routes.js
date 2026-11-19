@@ -36,11 +36,12 @@ router.post(
     body('phone').optional().trim(),
     body('email').optional().isEmail().withMessage('Valid email required'),
     body('pricePerHour').optional().isFloat({ min: 0 }).withMessage('Price must be a positive number'),
+    body('location.coordinates').optional().isArray({ min: 2, max: 2 }).withMessage('Coordinates must be [lng, lat]'),
   ],
   validate,
   async (req, res, next) => {
     try {
-      const { name, address, phone, email, pricePerHour } = req.body;
+      const { name, address, phone, email, pricePerHour, location } = req.body;
 
       let slug = generateSlug(name);
 
@@ -48,6 +49,15 @@ router.post(
       const existingSlug = await Cafe.findOne({ slug });
       if (existingSlug) {
         slug = `${slug}-${Date.now().toString(36)}`;
+      }
+
+      // Only store location if valid coordinates are provided
+      let locationField;
+      if (location?.coordinates?.length === 2) {
+        const [lng, lat] = location.coordinates;
+        if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+          locationField = { type: 'Point', coordinates: [lng, lat] };
+        }
       }
 
       const cafe = await Cafe.create({
@@ -58,6 +68,7 @@ router.post(
         email,
         pricePerHour: pricePerHour || 100,
         owner: req.user._id,
+        ...(locationField && { location: locationField }),
       });
 
       // Create OWNER membership
@@ -100,6 +111,52 @@ router.get('/my', authenticate, async (req, res, next) => {
   }
 });
 
+// GET /api/cafes/nearby — geospatial nearby search (no auth)
+// ?lat=22.71&lng=75.85&maxDistance=10000 (meters, default 10km, max 50km)
+router.get('/nearby', async (req, res, next) => {
+  try {
+    const lat = parseFloat(req.query.lat);
+    const lng = parseFloat(req.query.lng);
+    const maxDistance = Math.min(parseInt(req.query.maxDistance, 10) || 10000, 50000);
+
+    if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      throw new AppError('Valid lat and lng query parameters are required', 400);
+    }
+
+    const cafes = await Cafe.aggregate([
+      {
+        $geoNear: {
+          near: { type: 'Point', coordinates: [lng, lat] },
+          distanceField: 'distance',
+          maxDistance,
+          spherical: true,
+          query: { isActive: true },
+        },
+      },
+      {
+        $project: {
+          name: 1,
+          slug: 1,
+          address: 1,
+          pricePerHour: 1,
+          currency: 1,
+          stationTypes: 1,
+          location: 1,
+          distance: 1,
+        },
+      },
+      { $limit: 50 },
+    ]);
+
+    res.json({
+      status: 'success',
+      data: { cafes },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET /api/cafes/public — public listing of active cafés (no auth)
 router.get('/public', async (req, res, next) => {
   try {
@@ -115,7 +172,7 @@ router.get('/public', async (req, res, next) => {
     }
 
     const cafes = await Cafe.find(filter)
-      .select('name slug address phone email pricePerHour currency stationTypes createdAt')
+      .select('name slug address phone email pricePerHour currency stationTypes location createdAt')
       .sort({ name: 1 })
       .limit(100);
 
@@ -193,6 +250,7 @@ router.put(
     body('phone').optional().trim(),
     body('email').optional().isEmail(),
     body('pricePerHour').optional().isFloat({ min: 0 }),
+    body('location.coordinates').optional().isArray({ min: 2, max: 2 }),
   ],
   validate,
   async (req, res, next) => {
@@ -202,6 +260,14 @@ router.put(
       for (const field of allowedFields) {
         if (req.body[field] !== undefined) {
           updates[field] = req.body[field];
+        }
+      }
+
+      // Handle location update
+      if (req.body.location?.coordinates?.length === 2) {
+        const [lng, lat] = req.body.location.coordinates;
+        if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+          updates.location = { type: 'Point', coordinates: [lng, lat] };
         }
       }
 

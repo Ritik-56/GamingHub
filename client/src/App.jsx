@@ -12,6 +12,7 @@ import Payments from './pages/Payments';
 import Settings from './pages/Settings';
 import StaffManagement from './pages/StaffManagement';
 import CafeEntry from './pages/CafeEntry';
+import CustomerDashboard from './pages/CustomerDashboard';
 
 // ---------------------------------------------------------------------------
 // GuestRoute — blocks /login when the user for the RELEVANT scope is already
@@ -125,6 +126,9 @@ function AppRoutes() {
         <Route path="settings" element={<Settings />} />
         <Route path="staff" element={<StaffManagement />} />
       </Route>
+
+      {/* Customer personal dashboard */}
+      <Route path="/me" element={<CustomerDashboard />} />
 
       {/* Catch-all fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />

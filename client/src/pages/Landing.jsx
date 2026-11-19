@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { publicApi as api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import NearbyMap from '../components/NearbyMap';
+import ErrorBoundary from '../components/ErrorBoundary';
 import heroImg from '../assets/hero-arena.jpg';
 import cafeCoverImg from '../assets/cafe-cover.jpg';
 
@@ -98,6 +100,12 @@ export default function Landing() {
                 }}>
                   Hi, {customerUser?.name?.split(' ')[0]}
                 </span>
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => navigate('/me')}
+                >
+                  My Dashboard
+                </button>
                 <button
                   className="btn btn-ghost btn-sm"
                   onClick={() => { logout('customer'); }}
@@ -351,6 +359,11 @@ export default function Landing() {
           )}
         </div>
       </section>
+
+      {/* ── Nearby Cafés Map ── */}
+      <ErrorBoundary fallback={null}>
+        <NearbyMap />
+      </ErrorBoundary>
 
       {/* ── Footer ── */}
       <footer className="landing-footer">

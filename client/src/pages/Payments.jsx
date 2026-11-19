@@ -26,6 +26,12 @@ export default function Payments() {
   const [stations, setStations] = useState([]);
   const [successMsg, setSuccessMsg] = useState('');
 
+  // Award points state
+  const [awardModal, setAwardModal] = useState(null); // { paymentId, customerName, hasCustomer }
+  const [awardPoints, setAwardPoints] = useState('');
+  const [awardSubmitting, setAwardSubmitting] = useState(false);
+  const [awardError, setAwardError] = useState('');
+
   // Fetch stations for optional station assignment in manual payment
   useEffect(() => {
     if (!currentCafe) return;
@@ -110,12 +116,41 @@ export default function Payments() {
     setProcessing(paymentId);
     setError('');
     try {
-      await api.post(`/cafes/${currentCafe._id}/payments/${paymentId}/markPaid`);
+      const res = await api.post(`/cafes/${currentCafe._id}/payments/${paymentId}/markPaid`);
       await fetchPayments();
+      // Offer to award points if a registered customer is linked and session exists
+      const p = res.data.data.payment;
+      if (p.customer && p.session) {
+        const customerName = p.customer?.name || p.customerName || 'this customer';
+        setAwardPoints('');
+        setAwardError('');
+        setAwardModal({ paymentId: p._id, customerName, hasCustomer: true });
+      }
     } catch (err) {
       setError(err.message);
     } finally {
       setProcessing(null);
+    }
+  };
+
+  const handleAwardPoints = async (e) => {
+    e.preventDefault();
+    const pts = parseInt(awardPoints, 10);
+    if (!pts || pts < 1) { setAwardError('Enter a valid number of points (min 1)'); return; }
+    setAwardSubmitting(true);
+    setAwardError('');
+    try {
+      await api.post(`/cafes/${currentCafe._id}/rewards/award`, {
+        paymentId: awardModal.paymentId,
+        points: pts,
+      });
+      setSuccessMsg(`\u2705 ${pts} reward point${pts !== 1 ? 's' : ''} awarded to ${awardModal.customerName}!`);
+      setTimeout(() => setSuccessMsg(''), 6000);
+      setAwardModal(null);
+    } catch (err) {
+      setAwardError(err.message);
+    } finally {
+      setAwardSubmitting(false);
     }
   };
 
@@ -617,6 +652,47 @@ export default function Payments() {
                   disabled={manualSubmitting || !manualCustomerName.trim() || !manualCustomerPhone.trim() || !manualAmount}
                 >
                   {manualSubmitting ? 'Recording...' : 'Record Payment'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Award Points Modal */}
+      {awardModal && createPortal(
+        <div className="modal-overlay" onClick={() => !awardSubmitting && setAwardModal(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '420px' }}>
+            <div className="modal-header">
+              <h3 className="modal-title">🏆 Award Reward Points</h3>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setAwardModal(null)} disabled={awardSubmitting} aria-label="Close">✕</button>
+            </div>
+            <form onSubmit={handleAwardPoints} className="modal-body">
+              <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-4)' }}>
+                Award points to <strong style={{ color: 'var(--color-text-primary)' }}>{awardModal.customerName}</strong> for their completed session.
+              </p>
+              <div className="form-group">
+                <label className="form-label" htmlFor="award-points">Points to Award</label>
+                <input
+                  id="award-points"
+                  type="number"
+                  min="1"
+                  step="1"
+                  className="form-input"
+                  placeholder="e.g. 50"
+                  value={awardPoints}
+                  onChange={(e) => setAwardPoints(e.target.value)}
+                  disabled={awardSubmitting}
+                  autoFocus
+                  required
+                />
+              </div>
+              {awardError && <div className="form-error">{awardError}</div>}
+              <div className="modal-actions">
+                <button type="button" className="btn btn-ghost" onClick={() => setAwardModal(null)} disabled={awardSubmitting}>Skip</button>
+                <button type="submit" className="btn btn-primary" disabled={awardSubmitting || !awardPoints}>
+                  {awardSubmitting ? 'Awarding...' : 'Award Points'}
                 </button>
               </div>
             </form>

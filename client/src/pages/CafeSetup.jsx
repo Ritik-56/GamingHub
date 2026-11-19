@@ -2,15 +2,16 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { adminApi as api } from '../services/api';
+import LocationPicker from '../components/LocationPicker';
 
 export default function CafeSetup() {
   const [form, setForm] = useState({
     name: '',
-    address: '',
     phone: '',
     email: '',
     pricePerHour: '100',
   });
+  const [location, setLocation] = useState({ lat: null, lng: null, address: '' });
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -27,10 +28,15 @@ export default function CafeSetup() {
     setError('');
     setSubmitting(true);
     try {
-      await api.post('/cafes', {
+      const payload = {
         ...form,
         pricePerHour: parseFloat(form.pricePerHour) || 100,
-      });
+        address: location.address || '',
+      };
+      if (location.lat && location.lng) {
+        payload.location = { type: 'Point', coordinates: [location.lng, location.lat] };
+      }
+      await api.post('/cafes', payload);
       await fetchCafes();
       navigate('/dashboard', { replace: true });
     } catch (err) {
@@ -71,18 +77,12 @@ export default function CafeSetup() {
             />
           </div>
 
-          <div className="form-group">
-            <label className="form-label" htmlFor="cafe-address">Address</label>
-            <input
-              id="cafe-address"
-              className="form-input"
-              type="text"
-              name="address"
-              placeholder="Full address"
-              value={form.address}
-              onChange={handleChange}
-            />
-          </div>
+          {/* Location Picker replaces plain address input */}
+          <LocationPicker
+            value={location}
+            onChange={setLocation}
+            disabled={submitting}
+          />
 
           <div className="form-row">
             <div className="form-group">

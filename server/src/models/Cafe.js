@@ -21,6 +21,18 @@ const cafeSchema = new mongoose.Schema(
       trim: true,
       maxlength: 300,
     },
+    // GeoJSON Point — coordinates: [longitude, latitude]
+    location: {
+      type: {
+        type: String,
+        enum: ['Point'],
+        default: 'Point',
+      },
+      coordinates: {
+        type: [Number], // [lng, lat]
+        default: undefined,
+      },
+    },
     phone: {
       type: String,
       trim: true,
@@ -61,7 +73,8 @@ const cafeSchema = new mongoose.Schema(
 );
 
 cafeSchema.index({ owner: 1 });
+// Sparse so cafés without coordinates don't cause index errors
+cafeSchema.index({ location: '2dsphere' }, { sparse: true });
 
 const Cafe = mongoose.model('Cafe', cafeSchema);
-
 export default Cafe;
