@@ -10,7 +10,7 @@
  * Uses AdvancedMarkerElement (new Marker API) — NOT the legacy google.maps.Marker.
  */
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { loadGoogleMaps } from './GoogleMapsLoader';
+import { loadGoogleMaps, importMapsLibrary } from './GoogleMapsLoader';
 
 const MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 const MAPS_MAP_ID = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID || 'DEMO_MAP_ID';
@@ -89,38 +89,49 @@ export default function LocationPicker({ value, onChange, disabled }) {
     onChangeRef.current({ lat, lng, address: address || manualAddr });
   }, [disabled, manualAddr]);
 
-  // Initialise map
+  // Initialise map — use importMapsLibrary so Map class is properly resolved
+  // (window.google.maps.Map is NOT available with loading=async)
   useEffect(() => {
     if (!mapsReady || !mapRef.current || mapInstanceRef.current) return;
-    const maps = window.google.maps;
-    const map = new maps.Map(mapRef.current, {
-      center,
-      zoom: value?.lat ? 15 : 5,
-      mapId: MAPS_MAP_ID,
-      mapTypeId: 'roadmap',
-      disableDefaultUI: false,
-      streetViewControl: false,
-      fullscreenControl: false,
-    });
-    mapInstanceRef.current = map;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { Map } = await importMapsLibrary('maps');
+        if (cancelled || mapInstanceRef.current) return;
+        const map = new Map(mapRef.current, {
+          center,
+          zoom: value?.lat ? 15 : 5,
+          mapId: MAPS_MAP_ID,
+          mapTypeId: 'roadmap',
+          disableDefaultUI: false,
+          streetViewControl: false,
+          fullscreenControl: false,
+        });
+        mapInstanceRef.current = map;
 
-    // Place marker if value exists
-    if (value?.lat) {
-      updateMarker(map, value.lat, value.lng, value.address);
-    }
+        // Place marker if value exists
+        if (value?.lat) {
+          updateMarker(map, value.lat, value.lng, value.address);
+        }
 
-    // Click to place marker
-    map.addListener('click', (e) => {
-      if (disabled) return;
-      const lat = e.latLng.lat();
-      const lng = e.latLng.lng();
-      const geocoder = new maps.Geocoder();
-      geocoder.geocode({ location: { lat, lng } }, (results, status) => {
-        const addr = status === 'OK' && results[0] ? results[0].formatted_address : `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-        setManualAddr(addr);
-        updateMarker(map, lat, lng, addr);
-      });
-    });
+        // Click to place marker
+        map.addListener('click', (e) => {
+          if (disabled) return;
+          const lat = e.latLng.lat();
+          const lng = e.latLng.lng();
+          const geocoder = new window.google.maps.Geocoder();
+          geocoder.geocode({ location: { lat, lng } }, (results, status) => {
+            const addr = status === 'OK' && results[0] ? results[0].formatted_address : `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+            setManualAddr(addr);
+            updateMarker(map, lat, lng, addr);
+          });
+        });
+      } catch (err) {
+        console.error('[LocationPicker] Map init failed:', err);
+        setMapsError('load-failed');
+      }
+    })();
+    return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapsReady]);
 

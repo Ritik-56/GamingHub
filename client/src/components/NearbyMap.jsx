@@ -9,7 +9,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { publicApi } from '../services/api';
-import { loadGoogleMaps, getGoogleMapsApiKey } from './GoogleMapsLoader';
+import { loadGoogleMaps, getGoogleMapsApiKey, importMapsLibrary } from './GoogleMapsLoader';
 
 const MAPS_API_KEY = getGoogleMapsApiKey();
 const MAPS_MAP_ID = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID || 'DEMO_MAP_ID';
@@ -72,9 +72,16 @@ export default function NearbyMap() {
     setStatus('loading');
     try {
       const res = await publicApi.get(`/cafes/nearby?lat=${lat}&lng=${lng}&maxDistance=10000`);
-      setCafes(res.data.data.cafes || []);
+      const found = res.data.data.cafes || [];
+      console.log(`[GamingHub] Nearby cafés (${found.length}):`, found.map(c => ({
+        name: c.name,
+        coords: c.location?.coordinates,
+        distance: `${Math.round(c.distance)}m`,
+      })));
+      setCafes(found);
       setStatus('ready');
-    } catch {
+    } catch (err) {
+      console.error('[GamingHub] Nearby cafés fetch failed:', err);
       setStatus('error');
     }
   }, []);
@@ -96,7 +103,7 @@ export default function NearbyMap() {
         if (cancelled || mapInstanceRef.current) return;
         const map = new Map(mapRef.current, {
           center: { lat: 22.9734, lng: 78.6569 },
-          zoom: 5,
+          zoom: 12,
           mapId: MAPS_MAP_ID,
           mapTypeId: 'roadmap',
           streetViewControl: false,
@@ -112,14 +119,16 @@ export default function NearbyMap() {
     return () => { cancelled = true; };
   }, [mapsReady]);
 
-  const placeMarkers = useCallback(async (maps, map, cafes, userLat, userLng) => {
+  const placeMarkers = useCallback(async (map, cafes, userLat, userLng) => {
     // Clear old markers
     markersRef.current.forEach((m) => { m.map = null; });
     markersRef.current = [];
     if (userMarkerRef.current) userMarkerRef.current.map = null;
 
-    // Load marker library
-    const { AdvancedMarkerElement } = await maps.importLibrary('marker');
+    // Load marker library (cached after first call).
+    // LatLngBounds lives on window.google.maps directly after importLibrary('maps')
+    // has been called by the loader — do NOT destructure it from importMapsLibrary().
+    const { AdvancedMarkerElement } = await importMapsLibrary('marker');
 
     // User location marker
     userMarkerRef.current = new AdvancedMarkerElement({
@@ -130,12 +139,20 @@ export default function NearbyMap() {
       zIndex: 10,
     });
 
-    // Fit bounds
-    const bounds = new maps.LatLngBounds();
+    // Fit bounds — LatLngBounds is on window.google.maps after the maps library loads
+    const bounds = new window.google.maps.LatLngBounds();
     bounds.extend({ lat: userLat, lng: userLng });
 
     cafes.forEach((cafe) => {
+      // Skip cafés with missing/invalid coordinates (defensive guard)
+      if (cafe.location?.coordinates?.length !== 2) return;
       const [lng, lat] = cafe.location.coordinates;
+      // Validate coordinate ranges before placing marker
+      if (typeof lat !== 'number' || typeof lng !== 'number' ||
+          lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+        console.warn(`[NearbyMap] Skipping café "${cafe.name}" — invalid coords:`, cafe.location.coordinates);
+        return;
+      }
       bounds.extend({ lat, lng });
 
       const marker = new AdvancedMarkerElement({
@@ -166,16 +183,25 @@ export default function NearbyMap() {
     if (!bounds.isEmpty()) {
       map.fitBounds(bounds, { padding: 60 });
       if (cafes.length === 0) {
+        // No cafés — just show user location at street level
         map.setCenter({ lat: userLat, lng: userLng });
         map.setZoom(13);
+      } else {
+        // After fitBounds, enforce a maximum zoom so markers aren't too zoomed in
+        window.google.maps.event.addListenerOnce(map, 'bounds_changed', () => {
+          if (map.getZoom() > 15) map.setZoom(15);
+        });
       }
+    } else {
+      map.setCenter({ lat: userLat, lng: userLng });
+      map.setZoom(13);
     }
   }, []);
 
   // When cafes + userPos both ready, place markers
   useEffect(() => {
     if (!mapsReady || !mapInstanceRef.current || !userPos || status !== 'ready') return;
-    placeMarkers(window.google.maps, mapInstanceRef.current, cafes, userPos.lat, userPos.lng);
+    placeMarkers(mapInstanceRef.current, cafes, userPos.lat, userPos.lng);
   }, [mapsReady, cafes, userPos, status, placeMarkers]);
 
   // Trigger resize when map becomes visible so tiles render correctly
@@ -235,6 +261,12 @@ export default function NearbyMap() {
         console.log(`[GamingHub] Location: lat=${lat}, lng=${lng}, accuracy=±${Math.round(accuracy)}m`);
         setUserPos({ lat, lng });
         setLocationAccuracy(Math.round(accuracy));
+
+        // Immediately center the map on the user's location at a street-level zoom
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.setCenter({ lat, lng });
+          mapInstanceRef.current.setZoom(13);
+        }
 
         // Warn if accuracy is poor (> 1 km)
         if (accuracy > 1000) {

@@ -123,6 +123,17 @@ router.get('/nearby', async (req, res, next) => {
       throw new AppError('Valid lat and lng query parameters are required', 400);
     }
 
+    // Before running $geoNear, unset malformed location fields (documents that
+    // have location.type but no location.coordinates break the 2dsphere index).
+    // This is idempotent — safe to run on every request.
+    await Cafe.updateMany(
+      {
+        'location.type': 'Point',
+        'location.coordinates.0': { $exists: false },
+      },
+      { $unset: { location: '' } }
+    );
+
     const cafes = await Cafe.aggregate([
       {
         $geoNear: {
@@ -130,7 +141,11 @@ router.get('/nearby', async (req, res, next) => {
           distanceField: 'distance',
           maxDistance,
           spherical: true,
-          query: { isActive: true },
+          // Filter: active cafés that have at least one coordinate value
+          query: {
+            isActive: true,
+            'location.coordinates.0': { $exists: true },
+          },
         },
       },
       {

@@ -22,15 +22,15 @@ const cafeSchema = new mongoose.Schema(
       maxlength: 300,
     },
     // GeoJSON Point — coordinates: [longitude, latitude]
+    // NOTE: No defaults here — if coordinates are not provided, the entire
+    // location field must be omitted so the sparse 2dsphere index stays valid.
     location: {
       type: {
         type: String,
         enum: ['Point'],
-        default: 'Point',
       },
       coordinates: {
         type: [Number], // [lng, lat]
-        default: undefined,
       },
     },
     phone: {
