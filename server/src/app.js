@@ -15,8 +15,40 @@ const publicDir = join(__dirname, '..', 'public');
 const app = express();
 
 // Security headers
-app.use(helmet());
-
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+        "script-src": [
+          "'self'",
+          "https://maps.googleapis.com",
+          "https://maps.gstatic.com",
+        ],
+        "connect-src": [
+          "'self'",
+          "https://maps.googleapis.com",
+          "https://maps.gstatic.com",
+        ],
+        "img-src": [
+          "'self'",
+          "data:",
+          "https://*.googleapis.com",
+          "https://*.gstatic.com",
+        ],
+        "style-src": [
+          "'self'",
+          "'unsafe-inline'",
+          "https://fonts.googleapis.com",
+        ],
+        "font-src": [
+          "'self'",
+          "https://fonts.gstatic.com",
+        ],
+      },
+    },
+  })
+);
 // CORS — allows web and future mobile clients
 app.use(cors({
   origin: config.corsOrigin,
