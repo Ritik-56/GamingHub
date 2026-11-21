@@ -22,19 +22,24 @@ app.use(
         ...helmet.contentSecurityPolicy.getDefaultDirectives(),
         "script-src": [
           "'self'",
+          "'wasm-unsafe-eval'",
           "https://maps.googleapis.com",
           "https://maps.gstatic.com",
         ],
         "connect-src": [
           "'self'",
-          "https://maps.googleapis.com",
-          "https://maps.gstatic.com",
+          "https://*.googleapis.com",
+          "https://*.gstatic.com",
+          "https://*.google.com",
         ],
         "img-src": [
           "'self'",
           "data:",
+          "blob:",
           "https://*.googleapis.com",
           "https://*.gstatic.com",
+          "https://*.google.com",
+          "https://*.googleusercontent.com",
         ],
         "style-src": [
           "'self'",
