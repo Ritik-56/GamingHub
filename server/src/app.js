@@ -45,6 +45,7 @@ app.use(
           "'self'",
           "https://fonts.gstatic.com",
         ],
+        "worker-src": ["'self'", "blob:"],
       },
     },
   })
