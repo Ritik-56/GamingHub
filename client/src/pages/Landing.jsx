@@ -16,6 +16,7 @@ export default function Landing() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [location, setLocation] = useState('');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const debounceTimer = useRef(null);
 
   const locations = Array.from(
@@ -59,8 +60,12 @@ export default function Landing() {
   useEffect(() => () => clearTimeout(debounceTimer.current), []);
 
   const scrollToSection = (id) => {
+    setMobileMenuOpen(false);
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
   };
+
+  // Close menu on outside click
+  const handleOverlayClick = () => setMobileMenuOpen(false);
 
   return (
     <div className="landing-page">
@@ -74,7 +79,7 @@ export default function Landing() {
             <span className="auth-brand-text">Gaming Hub</span>
           </div>
 
-          {/* Center nav links */}
+          {/* Center nav links — hidden on mobile */}
           <nav className="landing-nav-links">
             <button className="landing-nav-link" onClick={() => scrollToSection('cafes-section')}>
               Cafés
@@ -89,7 +94,7 @@ export default function Landing() {
             )}
           </nav>
 
-          {/* Auth buttons */}
+          {/* Auth buttons — hidden on mobile */}
           <div className="landing-header-actions">
             {isCustomerAuthenticated ? (
               <>
@@ -137,7 +142,60 @@ export default function Landing() {
               </>
             )}
           </div>
+
+          {/* Hamburger button — only visible on mobile */}
+          <button
+            className="landing-hamburger"
+            onClick={() => setMobileMenuOpen((v) => !v)}
+            aria-label="Toggle navigation menu"
+            aria-expanded={mobileMenuOpen}
+          >
+            <span className={`landing-hamburger-icon ${mobileMenuOpen ? 'open' : ''}`}>
+              <span /><span /><span />
+            </span>
+          </button>
         </div>
+
+        {/* Mobile menu drawer */}
+        {mobileMenuOpen && (
+          <div className="landing-mobile-menu">
+            <button className="landing-nav-link landing-mobile-nav-link" onClick={() => scrollToSection('cafes-section')}>
+              🎮 Cafés
+            </button>
+            <button className="landing-nav-link landing-mobile-nav-link" onClick={() => scrollToSection('how-it-works')}>
+              ❓ How it Works
+            </button>
+            {!isAdminAuthenticated && (
+              <button className="landing-nav-link landing-mobile-nav-link" onClick={() => { setMobileMenuOpen(false); navigate('/login', { state: { mode: 'owner' } }); }}>
+                🏪 For Owners
+              </button>
+            )}
+            <div className="landing-mobile-menu-divider" />
+            {isCustomerAuthenticated ? (
+              <>
+                <button className="btn btn-ghost btn-sm landing-mobile-auth-btn" onClick={() => { setMobileMenuOpen(false); navigate('/me'); }}>
+                  My Dashboard
+                </button>
+                <button className="btn btn-ghost btn-sm landing-mobile-auth-btn" onClick={() => { setMobileMenuOpen(false); logout('customer'); }}>
+                  Logout
+                </button>
+              </>
+            ) : isAdminAuthenticated ? (
+              <button className="btn btn-primary btn-sm landing-mobile-auth-btn" onClick={() => { setMobileMenuOpen(false); navigate('/dashboard'); }}>
+                Dashboard →
+              </button>
+            ) : (
+              <>
+                <button className="btn btn-ghost btn-sm landing-mobile-auth-btn" onClick={() => { setMobileMenuOpen(false); navigate('/login', { state: { mode: 'customer' } }); }}>
+                  Customer Login
+                </button>
+                <button className="btn btn-primary btn-sm landing-mobile-auth-btn" onClick={() => { setMobileMenuOpen(false); navigate('/login', { state: { mode: 'owner' } }); }}>
+                  Owner Login
+                </button>
+              </>
+            )}
+          </div>
+        )}
       </header>
 
       {/* ── Hero ── */}

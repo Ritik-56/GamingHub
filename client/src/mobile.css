@@ -1,0 +1,425 @@
+/* ═══════════════════════════════════════════════════════════
+   Gaming Hub — Mobile Responsive Styles
+   Targets: Android Capacitor WebView, 320px–430px phones
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Global overflow prevention ── */
+html, body {
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Safe area insets for Android notch / nav bar */
+:root {
+  --safe-top:    env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left:   env(safe-area-inset-left, 0px);
+  --safe-right:  env(safe-area-inset-right, 0px);
+}
+
+/* ══════════════════════════════════════════════════════
+   LANDING NAVBAR — Hamburger Menu
+   ══════════════════════════════════════════════════════ */
+
+/* Hamburger button — hidden on desktop */
+.landing-hamburger {
+  display: none;
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0.45rem 0.6rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.landing-hamburger-icon {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 18px;
+}
+.landing-hamburger-icon span {
+  display: block;
+  height: 2px;
+  background: var(--color-text-primary);
+  border-radius: 2px;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+  transform-origin: center;
+}
+/* Animate to X when open */
+.landing-hamburger-icon.open span:nth-child(1) { transform: translateY(6px) rotate(45deg); }
+.landing-hamburger-icon.open span:nth-child(2) { opacity: 0; }
+.landing-hamburger-icon.open span:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
+
+/* Mobile dropdown menu */
+.landing-mobile-menu {
+  display: none; /* shown below 768px */
+  flex-direction: column;
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  border-top: 1px solid var(--color-border);
+  background: rgba(13,13,13,0.97);
+  gap: var(--space-1);
+}
+
+.landing-mobile-nav-link {
+  display: block !important;
+  width: 100%;
+  text-align: left;
+  padding: 0.75rem 1rem !important;
+  font-size: var(--font-size-base) !important;
+  border-radius: var(--radius-md) !important;
+}
+
+.landing-mobile-menu-divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: var(--space-2) 0;
+}
+
+.landing-mobile-auth-btn {
+  width: 100% !important;
+  justify-content: center !important;
+  padding: 0.7rem 1rem !important;
+  font-size: var(--font-size-sm) !important;
+  border-radius: var(--radius-md) !important;
+}
+
+/* ══════════════════════════════════════════════════════
+   BREAKPOINT: ≤ 768px  (tablets and large phones)
+   ══════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+
+  /* Auth page: single column */
+  .auth-page {
+    grid-template-columns: 1fr;
+  }
+  .auth-panel-photo {
+    display: none;
+  }
+  .auth-panel-form {
+    padding: var(--space-6) var(--space-4);
+    align-items: flex-start;
+    padding-top: var(--space-10);
+  }
+  .auth-container {
+    max-width: 100%;
+  }
+
+  /* Dashboard sidebar: off-screen by default, slides in */
+  .sidebar {
+    transform: translateX(-100%);
+  }
+  .sidebar.open {
+    transform: translateX(0);
+  }
+  .main-content {
+    margin-left: 0;
+  }
+  .mobile-menu-toggle {
+    display: flex;
+  }
+
+  /* form-row: stack on mobile */
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  /* Page section padding */
+  .page-section {
+    padding: var(--space-4);
+  }
+  .page-section-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  /* Modals: full-width with margin */
+  .modal {
+    padding: var(--space-5);
+    max-width: calc(100vw - 2rem);
+    margin: 0 var(--space-4);
+  }
+  .modal-actions {
+    flex-direction: column;
+  }
+  .modal-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Cards grid: single column */
+  .landing-cafe-grid {
+    grid-template-columns: 1fr;
+  }
+  .home-stats {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  /* Landing header: show hamburger, hide desktop nav */
+  .landing-nav-links {
+    display: none;
+  }
+  .landing-header-actions {
+    display: none;
+  }
+  .landing-hamburger {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .landing-mobile-menu {
+    display: flex;
+  }
+  .landing-header {
+    height: auto;
+    min-height: 56px;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .landing-header-inner {
+    padding: 0 var(--space-4);
+    gap: var(--space-3);
+    min-height: 56px;
+  }
+  .landing-hero {
+    padding-top: 56px;
+    min-height: auto;
+  }
+
+  /* Hero section */
+  .landing-hero-inner {
+    padding: var(--space-10) var(--space-4) var(--space-10);
+  }
+  .landing-title {
+    font-size: clamp(1.75rem, 8vw, 2.4rem);
+    max-width: 100%;
+  }
+  .landing-subtitle {
+    font-size: var(--font-size-base);
+    max-width: 100%;
+    margin-bottom: var(--space-6);
+  }
+
+  /* Search bar: full width */
+  .landing-search-wrap {
+    max-width: 100%;
+    padding: 0.6rem 1rem;
+  }
+
+  /* CTA row: stack buttons */
+  .landing-cta-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-3);
+  }
+  .landing-cta-row .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Location chips: scroll horizontally */
+  .landing-location-chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: var(--space-2);
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .landing-location-chips::-webkit-scrollbar { display: none; }
+
+  /* Sections padding */
+  .landing-cafes-inner {
+    padding: 0 var(--space-4);
+  }
+  .landing-cafes {
+    padding: var(--space-10) 0;
+  }
+  #how-it-works {
+    padding: var(--space-10) var(--space-4) !important;
+  }
+
+  /* Footer: stack */
+  .landing-footer-inner {
+    flex-direction: column;
+    padding: 0 var(--space-4);
+    gap: var(--space-4);
+  }
+  .landing-footer-links {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+  }
+  .landing-footer-links .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Nearby map section */
+  .nearby-section {
+    padding: var(--space-10) var(--space-4);
+  }
+  .nearby-cta-box {
+    max-width: 100%;
+    padding: var(--space-6) var(--space-4);
+  }
+  .nearby-map {
+    height: 280px;
+    border-radius: var(--radius-lg);
+  }
+  .nearby-cafe-list {
+    grid-template-columns: 1fr;
+  }
+
+  /* Setup card */
+  .setup-page {
+    padding: var(--space-4);
+    align-items: flex-start;
+    padding-top: var(--space-8);
+  }
+  .setup-card {
+    padding: var(--space-6);
+    border-radius: var(--radius-lg);
+  }
+
+  /* Customer page */
+  .customer-content {
+    padding: var(--space-5) var(--space-4);
+  }
+  .customer-header {
+    padding: 0 var(--space-4);
+  }
+
+  /* Tables: horizontal scroll */
+  .table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Location picker map */
+  .location-picker-map {
+    min-height: 220px;
+  }
+}
+
+/* ══════════════════════════════════════════════════════
+   BREAKPOINT: ≤ 480px  (small phones: 320px – 430px)
+   ══════════════════════════════════════════════════════ */
+@media (max-width: 480px) {
+
+  /* Reduce global font size slightly for very small screens */
+  html { font-size: 15px; }
+
+  /* Hero typography */
+  .landing-title {
+    font-size: clamp(1.6rem, 9vw, 2rem);
+    letter-spacing: -0.01em;
+  }
+  .landing-hero-inner {
+    padding: var(--space-8) var(--space-4);
+  }
+  .landing-hero-badge {
+    font-size: 0.65rem;
+  }
+
+  /* Stats: single column on very small screens */
+  .home-stats {
+    grid-template-columns: 1fr;
+  }
+
+  /* Page section header actions: stack */
+  .page-section-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+  .page-section-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Auth page form */
+  .auth-panel-form {
+    padding: var(--space-5) var(--space-3);
+  }
+
+  /* Modal: near full screen */
+  .modal {
+    padding: var(--space-4);
+    max-width: calc(100vw - 1.5rem);
+    border-radius: var(--radius-lg);
+  }
+
+  /* Nearby map */
+  .nearby-map { height: 240px; }
+  .nearby-title { font-size: var(--font-size-2xl); }
+
+  /* Buttons don't overflow */
+  .btn-xl {
+    padding: 0.8rem 1.4rem;
+    font-size: var(--font-size-base);
+  }
+
+  /* Link-copy row: stack */
+  .link-copy-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-3);
+  }
+  .link-copy-url {
+    font-size: var(--font-size-xs);
+    max-width: 100%;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+  .link-copy-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Session card */
+  .session-status-card {
+    padding: var(--space-5);
+    border-radius: var(--radius-lg);
+  }
+
+  /* Customer login prompt: stack */
+  .customer-login-prompt {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  /* Tab group: full width */
+  .tab-group {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .tab-btn {
+    flex: 1;
+    text-align: center;
+    padding: 0.4rem 0.5rem;
+  }
+}
+
+/* ══════════════════════════════════════════════════════
+   CAPACITOR / WEBVIEW SAFE AREA
+   ══════════════════════════════════════════════════════ */
+@supports (padding: env(safe-area-inset-top)) {
+  .landing-header {
+    padding-top: var(--safe-top);
+  }
+  .landing-hero {
+    padding-top: calc(56px + var(--safe-top));
+  }
+  .customer-header,
+  .header {
+    padding-top: var(--safe-top);
+  }
+  .sidebar {
+    padding-top: var(--safe-top);
+    padding-bottom: var(--safe-bottom);
+  }
+  /* Bottom navigation bar clearance */
+  .landing-footer {
+    padding-bottom: calc(var(--space-10) + var(--safe-bottom));
+  }
+}
