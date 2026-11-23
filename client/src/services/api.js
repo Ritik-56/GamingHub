@@ -9,7 +9,7 @@ import axios from 'axios';
 
 function makeApiInstance(getToken) {
   const instance = axios.create({
-    baseURL: '/api',
+    baseURL: 'https://gaminghub-5qac.onrender.com/api',
     timeout: 10000,
     headers: { 'Content-Type': 'application/json' },
   });
