@@ -56,8 +56,17 @@ app.use(
   })
 );
 // CORS — allows web and future mobile clients
+const allowedOrigins = config.corsOrigin
+  .split(',')
+  .map(origin => origin.trim());
+
 app.use(cors({
-  origin: config.corsOrigin,
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
 }));
 
